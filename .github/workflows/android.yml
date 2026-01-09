@@ -2,63 +2,55 @@ name: Build Android APK
 
 on:
   push:
-    branches: [ "main" ]
+    branches:
+      - main
 
 jobs:
   build:
     runs-on: ubuntu-latest
 
     steps:
-    # 1️⃣ Checkout the repository
+    # 1️⃣ Checkout repo
     - name: Checkout repository
-      uses: actions/checkout@v4
+      uses: actions/checkout@v3
 
     # 2️⃣ Setup Python
     - name: Setup Python
       uses: actions/setup-python@v5
       with:
-        python-version: "3.10"
+        python-version: 3.10
 
     # 3️⃣ Install system dependencies
     - name: Install system dependencies
       run: |
-        sudo apt update
-        sudo apt install -y \
-          git zip unzip openjdk-17-jdk python3-pip \
-          autoconf libtool pkg-config zlib1g-dev \
-          libncurses5-dev libncursesw5-dev libtinfo6 cmake \
-          libffi-dev libssl-dev wget
-
-    # 4️⃣ Install Python packages
-    - name: Install Python deps
-      run: |
+        sudo apt-get update
+        sudo apt-get install -y python3-pip python3-dev git zip unzip openjdk-11-jdk wget
         pip install --upgrade pip
         pip install cython==0.29.36
-        pip install kivy buildozer
+
+    # 4️⃣ Install Buildozer
+    - name: Install Buildozer
+      run: |
+        pip install buildozer==1.4.3
 
     # 5️⃣ Setup Android SDK & accept licenses
-    - name: Accept Android SDK licenses & install tools
+    - name: Setup Android SDK & accept licenses
       run: |
         export ANDROID_SDK_ROOT=$HOME/.buildozer/android/platform/android-sdk
         mkdir -p $ANDROID_SDK_ROOT/cmdline-tools/latest
+        cd $ANDROID_SDK_ROOT
 
-        # Move cmdline-tools if present
-        if [ ! -f $ANDROID_SDK_ROOT/cmdline-tools/latest/bin/sdkmanager ]; then
-          mv $ANDROID_SDK_ROOT/cmdline-tools/* $ANDROID_SDK_ROOT/cmdline-tools/latest/ 2>/dev/null || true
-        fi
+        # Download SDK command-line tools
+        wget https://dl.google.com/android/repository/commandlinetools-linux-9477386_latest.zip -O cmdline-tools.zip
+        unzip -q cmdline-tools.zip -d cmdline-tools_tmp
+        mv cmdline-tools_tmp/cmdline-tools/* cmdline-tools/latest/
+        rm -rf cmdline-tools.zip cmdline-tools_tmp
 
-        # Install SDK components
+        # Accept licenses and install SDK components
         yes | $ANDROID_SDK_ROOT/cmdline-tools/latest/bin/sdkmanager --licenses
         $ANDROID_SDK_ROOT/cmdline-tools/latest/bin/sdkmanager "build-tools;36.1.0" "platform-tools" "platforms;android-33"
 
-    # 6️⃣ Build the APK using Buildozer
+    # 6️⃣ Build APK
     - name: Build APK
       run: |
-        buildozer -v android debug
-
-    # 7️⃣ Upload APK artifact
-    - name: Upload APK
-      uses: actions/upload-artifact@v4
-      with:
-        name: MedicineTrackerAPK
-        path: bin/*.apk
+        buildozer android debug
