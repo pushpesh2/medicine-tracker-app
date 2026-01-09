@@ -28,23 +28,24 @@ jobs:
             git zip unzip openjdk-17-jdk python3-pip \
             autoconf libtool pkg-config zlib1g-dev \
             libncurses5-dev libncursesw5-dev libtinfo6 cmake \
-            libffi-dev libssl-dev wget
-
-      # 4️⃣ Install Python packages
-      - name: Install Python deps
+            libffi-dev libssl-dev wget python3-venv build-essential
+          
+      # 4️⃣ Setup Python virtual environment
+      - name: Setup Python venv
         run: |
-          pip install --upgrade pip
-          pip install cython==0.29.36
-          pip install buildozer kivy
+          python3 -m venv venv
+          source venv/bin/activate
+          pip install --upgrade pip setuptools wheel
+          pip install cython==0.29.36 buildozer kivy
 
-      # 5️⃣ Setup Android SDK & accept licenses (FIXED)
+      # 5️⃣ Setup Android SDK & accept licenses
       - name: Setup Android SDK & accept licenses
         run: |
           SDK_ROOT=$HOME/.buildozer/android/platform/android-sdk
           mkdir -p $SDK_ROOT/cmdline-tools
           cd $SDK_ROOT/cmdline-tools
 
-          # Download official cmdline-tools zip
+          # Download official cmdline-tools
           wget https://dl.google.com/android/repository/commandlinetools-linux-9477386_latest.zip -O cmdline-tools.zip
           unzip -q cmdline-tools.zip
 
@@ -65,6 +66,7 @@ jobs:
       # 6️⃣ Build the APK using Buildozer
       - name: Build APK
         run: |
+          source venv/bin/activate
           buildozer -v android debug
 
       # 7️⃣ Upload APK artifact
