@@ -20,7 +20,7 @@ jobs:
           python-version: "3.10"
           cache: 'pip'
 
-      # 3️⃣ Install system dependencies (fixed libffi/autotools issue)
+      # 3️⃣ Install system dependencies (autotools + libffi fixes)
       - name: Install system dependencies
         run: |
           sudo apt update
