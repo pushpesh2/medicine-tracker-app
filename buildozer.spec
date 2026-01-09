@@ -9,6 +9,9 @@ package.name = medicinetracker
 # (str) Package domain (reverse DNS style)
 package.domain = com.pushpesh
 
+# ✅ (str) App version
+version = 1.0.0
+
 # (str) Source code where the main.py is located
 source.dir = .
 
@@ -44,8 +47,8 @@ android.entrypoint = org.kivy.android.PythonActivity
 # (str) Additional permissions
 android.permissions = INTERNET, WRITE_EXTERNAL_STORAGE, READ_EXTERNAL_STORAGE
 
-# (bool) Include Android bootstrap sdl2
-android.bootstrap = sdl2
+# ✅ Updated bootstrap
+p4a.bootstrap = sdl2
 
 # (bool) Build in debug mode
 log_level = 2
