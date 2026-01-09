@@ -2,7 +2,7 @@ name: Build Android APK
 
 on:
   push:
-    branches: [ "main" ]
+    branches: ["main"]
 
 jobs:
   build:
@@ -13,7 +13,7 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      # 2️⃣ Setup Python 3.10
+      # 2️⃣ Setup Python 3.10 with pip cache
       - name: Setup Python
         uses: actions/setup-python@v5
         with:
@@ -29,14 +29,14 @@ jobs:
             autoconf libtool pkg-config zlib1g-dev \
             libncurses5-dev libncursesw5-dev libtinfo6 cmake \
             libffi-dev libssl-dev wget python3-venv build-essential
-          
-      # 4️⃣ Setup Python virtual environment
-      - name: Setup Python venv
+
+      # 4️⃣ Setup Python virtual environment and install deps
+      - name: Install Python deps
         run: |
           python3 -m venv venv
           source venv/bin/activate
           pip install --upgrade pip setuptools wheel
-          pip install cython==0.29.36 buildozer kivy
+          pip install -r requirements.txt
 
       # 5️⃣ Setup Android SDK & accept licenses
       - name: Setup Android SDK & accept licenses
@@ -53,17 +53,17 @@ jobs:
           mkdir -p latest
           mv cmdline-tools/* latest/ 2>/dev/null || mv */* latest/ 2>/dev/null
 
-          # Create symlink for Buildozer
+          # Symlink for Buildozer compatibility
           mkdir -p $SDK_ROOT/tools/bin
           ln -s $SDK_ROOT/cmdline-tools/latest/bin/sdkmanager $SDK_ROOT/tools/bin/sdkmanager
 
           # Accept licenses
           yes | $SDK_ROOT/cmdline-tools/latest/bin/sdkmanager --licenses
 
-          # Install required SDK packages
+          # Install SDK packages
           $SDK_ROOT/cmdline-tools/latest/bin/sdkmanager "build-tools;36.1.0" "platform-tools" "platforms;android-33"
 
-      # 6️⃣ Build the APK using Buildozer
+      # 6️⃣ Build APK using Buildozer inside venv
       - name: Build APK
         run: |
           source venv/bin/activate
