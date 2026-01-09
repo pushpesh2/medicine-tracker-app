@@ -32,6 +32,11 @@ jobs:
           pip install cython==0.29.36
           pip install kivy buildozer
 
+      - name: Accept Android SDK licenses & install tools
+        run: |
+          yes | $HOME/.buildozer/android/platform/android-sdk/tools/bin/sdkmanager --licenses
+          $HOME/.buildozer/android/platform/android-sdk/tools/bin/sdkmanager "build-tools;36.1.0" "platform-tools" "platforms;android-33"
+
       - name: Build APK
         run: |
           buildozer -v android debug
