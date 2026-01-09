@@ -1,11 +1,6 @@
-# Buildozer and Python build tools
 cython==0.29.36
 buildozer==1.4.3
-
-# Kivy for GUI
 kivy==2.3.2
-
-# Optional dependencies often used with Kivy apps
-Pillow==10.0.1         # image handling
-requests==2.31.0       # network requests
-python-dateutil==2.8.2 # date/time parsing
+Pillow==10.0.1
+requests==2.31.0
+python-dateutil==2.8.2
