@@ -1,44 +1,40 @@
 name: Build Android APK
-on: [push, pull_request]
+on: 
+  push:
+    branches: [ main ]
+  workflow_dispatch:
 
 jobs:
   build:
-    runs-on: ubuntu-latest # Using 'latest' for better compatibility
+    runs-on: ubuntu-22.04  # Using 22.04 because it is more stable for Buildozer than 24.04
 
     steps:
       - name: Checkout Code
         uses: actions/checkout@v4
 
-      - name: Install Dependencies
+      - name: Install System Dependencies
         run: |
           sudo apt update
           sudo apt install -y \
             python3-pip build-essential git python3-dev \
             libffi-dev libssl-dev libsqlite3-dev \
-            ffmpeg libsdl2-dev libsdl2-image-dev \
-            libsdl2-mixer-dev libsdl2-ttf-dev \
-            libportmidi-dev libswscale-dev libavformat-dev \
-            libavcodec-dev zlib1g-dev libgstreamer1.0-dev \
-            gstreamer1.0-plugins-base gstreamer1.0-plugins-good \
-            openjdk-17-jdk unzip zip autoconf automake libtool pkg-config
+            openjdk-17-jdk unzip zip autoconf automake libtool pkg-config \
+            zlib1g-dev libncurses5 libstdc++6 tar
 
-      - name: Setup Buildozer
+      - name: Setup Python & Buildozer
         run: |
-          # Use --break-system-packages because GitHub runners are disposable VMs
-          pip3 install --user --upgrade buildozer cython==0.29.33 
+          # Use specific Cython version required by Kivy
+          pip3 install --user --upgrade buildozer Cython==0.29.33 virtualenv
           echo "$HOME/.local/bin" >> $GITHUB_PATH
 
       - name: Build with Buildozer
         run: |
-          # If spec file doesn't exist, this creates a default one so it won't crash
-          if [ ! -f buildozer.spec ]; then buildozer init; fi
-          
-          # This command accepts licenses and builds in one go
-          # '--debug' gives us info if it fails
+          # The 'yes |' part automatically accepts all Android SDK licenses
+          # We use 'android debug' to create the APK
           yes | buildozer -v android debug
 
-      - name: Upload APK Artifact
+      - name: Upload APK
         uses: actions/upload-artifact@v4
         with:
-          name: package
+          name: MedicineTracker-APK
           path: bin/*.apk
