@@ -7,30 +7,21 @@ on:
 
 jobs:
   build:
-    runs-on: ubuntu-22.04   # ❗ REQUIRED (24.04 BREAKS PYTHON/NDK)
+    runs-on: ubuntu-22.04
 
     env:
       ANDROID_HOME: $HOME/android-sdk
       ANDROID_SDK_ROOT: $HOME/android-sdk
 
     steps:
-    # -------------------------------------------------
-    # 1️⃣ Checkout
-    # -------------------------------------------------
-    - name: Checkout repository
+    - name: Checkout repo
       uses: actions/checkout@v4
 
-    # -------------------------------------------------
-    # 2️⃣ Python (Buildozer COMPATIBLE)
-    # -------------------------------------------------
     - name: Setup Python
       uses: actions/setup-python@v5
       with:
         python-version: "3.10"
 
-    # -------------------------------------------------
-    # 3️⃣ System dependencies (NO ncurses errors)
-    # -------------------------------------------------
     - name: Install system dependencies
       run: |
         sudo apt update
@@ -42,18 +33,13 @@ jobs:
           libffi-dev libssl-dev zlib1g-dev \
           cmake
 
-    # -------------------------------------------------
-    # 4️⃣ Python tools
-    # -------------------------------------------------
-    - name: Install Python packages
+    - name: Install Python tools
       run: |
         python -m pip install --upgrade pip
         pip install buildozer==1.5.0 cython
 
-    # -------------------------------------------------
-    # 5️⃣ Android SDK (THIS IS THE CRITICAL FIX)
-    # -------------------------------------------------
-    - name: Install Android SDK command-line tools
+    # ✅ FIXED ANDROID SDK INSTALL
+    - name: Install Android SDK
       run: |
         mkdir -p $ANDROID_HOME/cmdline-tools
         cd $ANDROID_HOME/cmdline-tools
@@ -61,15 +47,13 @@ jobs:
         wget https://dl.google.com/android/repository/commandlinetools-linux-11076708_latest.zip -O tools.zip
         unzip -q tools.zip
 
-        # 🔥 THIS LINE FIXES sdkmanager CLASS ERROR
+        # 🔥 CRITICAL FIX (THIS IS WHAT YOU WERE MISSING)
         mv cmdline-tools latest
 
         rm tools.zip
 
-    # -------------------------------------------------
-    # 6️⃣ Install Android packages
-    # -------------------------------------------------
-    - name: Install Android SDK packages
+    # ✅ sdkmanager WILL WORK NOW
+    - name: Install Android packages
       run: |
         export PATH=$ANDROID_HOME/cmdline-tools/latest/bin:$PATH
         yes | sdkmanager --licenses
@@ -79,26 +63,16 @@ jobs:
           "build-tools;33.0.2" \
           "ndk;25.2.9519653"
 
-    # -------------------------------------------------
-    # 7️⃣ Cache Buildozer (optional but faster)
-    # -------------------------------------------------
     - name: Cache Buildozer
       uses: actions/cache@v4
       with:
-        path: |
-          ~/.buildozer
+        path: ~/.buildozer
         key: buildozer-${{ runner.os }}
 
-    # -------------------------------------------------
-    # 8️⃣ Build APK
-    # -------------------------------------------------
     - name: Build APK
       run: |
         buildozer android debug
 
-    # -------------------------------------------------
-    # 9️⃣ Upload APK automatically
-    # -------------------------------------------------
     - name: Upload APK
       uses: actions/upload-artifact@v4
       with:
