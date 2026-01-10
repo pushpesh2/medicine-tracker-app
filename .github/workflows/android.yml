@@ -9,11 +9,6 @@ jobs:
   build:
     runs-on: ubuntu-22.04
 
-    env:
-      ANDROID_HOME: $HOME/android-sdk
-      ANDROID_SDK_ROOT: $HOME/android-sdk
-      JAVA_HOME: /usr/lib/jvm/java-17-openjdk-amd64
-
     steps:
     - name: Checkout
       uses: actions/checkout@v4
@@ -31,38 +26,18 @@ jobs:
           autoconf automake libtool \
           pkg-config libffi-dev libssl-dev zlib1g-dev cmake
 
+    # ✅ OFFICIAL ANDROID SDK SETUP (NO sdkmanager ERRORS)
+    - name: Setup Android SDK
+      uses: android-actions/setup-android@v3
+      with:
+        api-level: 33
+        build-tools: 33.0.2
+        ndk: 25.2.9519653
+
     - name: Install Buildozer
       run: |
         python -m pip install --upgrade pip
         pip install buildozer cython
-
-    - name: Install Android SDK cmdline-tools (CORRECT)
-      run: |
-        mkdir -p $ANDROID_HOME/cmdline-tools
-        cd $ANDROID_HOME/cmdline-tools
-
-        wget https://dl.google.com/android/repository/commandlinetools-linux-11076708_latest.zip -O tools.zip
-        unzip -q tools.zip
-
-        # FIX: move CONTENTS, keep lib/
-        mkdir -p latest
-        mv cmdline-tools/* latest/
-        rm -rf cmdline-tools tools.zip
-
-    - name: Verify sdkmanager (must work)
-      run: |
-        export PATH=$ANDROID_HOME/cmdline-tools/latest/bin:$PATH
-        sdkmanager --version
-
-    - name: Install Android packages
-      run: |
-        export PATH=$ANDROID_HOME/cmdline-tools/latest/bin:$ANDROID_HOME/platform-tools:$PATH
-        yes | sdkmanager --licenses
-        sdkmanager \
-          "platform-tools" \
-          "platforms;android-33" \
-          "build-tools;33.0.2" \
-          "ndk;25.2.9519653"
 
     - name: Build APK
       run: |
