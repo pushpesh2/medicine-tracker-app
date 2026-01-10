@@ -1,4 +1,4 @@
-name: Build Android APK (Ultra Fast)
+name: Build Android APK
 
 on:
   push:
@@ -10,18 +10,17 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      - name: Checkout
+      - name: Checkout code
         uses: actions/checkout@v4
 
-      # Hash app source files to detect changes
+      # Calculate hash for caching
       - name: Calculate source hash
         id: hash
         run: |
           echo "HASH=$(find . -type f \( -name '*.py' -o -name '*.kv' -o -name '*.spec' -o -name '*.png' \) -print0 | sort -z | xargs -0 sha256sum | sha256sum | cut -d' ' -f1)" >> $GITHUB_OUTPUT
 
-      # Restore Buildozer cache if available
-      - name: Restore Build Cache
-        id: restore
+      # Restore buildozer cache
+      - name: Restore Buildozer Cache
         uses: actions/cache@v4
         with:
           path: .buildozer
@@ -29,7 +28,7 @@ jobs:
           restore-keys: |
             buildozer-
 
-      # Check if build is needed
+      # Only build if needed
       - name: Check if build needed
         id: check
         run: |
@@ -39,7 +38,7 @@ jobs:
             echo "BUILD_NEEDED=true" >> $GITHUB_OUTPUT
           fi
 
-      # Build APK using Docker if needed
+      # Build APK in Docker (non-interactive, allows root)
       - name: Build APK
         if: steps.check.outputs.BUILD_NEEDED == 'true'
         uses: addnab/docker-run-action@v3
@@ -47,7 +46,6 @@ jobs:
           image: kivy/buildozer:latest
           options: --workdir /app -v ${{ github.workspace }}:/app
           run: |
-            set -e
             export BUILD_NO_INTERACTIVE=1
             export BUILD_USER=root
             buildozer android debug
