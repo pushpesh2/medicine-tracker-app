@@ -13,7 +13,7 @@ jobs:
     - name: Checkout repo
       uses: actions/checkout@v4
 
-    # ✅ FIX 1: FORCE JAVA 17
+    # ✅ Java 17 (MANDATORY)
     - name: Setup Java 17
       uses: actions/setup-java@v4
       with:
@@ -33,16 +33,12 @@ jobs:
           autoconf automake libtool \
           pkg-config libffi-dev libssl-dev zlib1g-dev cmake
 
-    # ✅ FIX 2: CORRECT android action usage
+    # ✅ FIXED PACKAGE SYNTAX
     - name: Setup Android SDK
       uses: android-actions/setup-android@v3
       with:
         accept-android-sdk-licenses: true
-        packages: |
-          platform-tools
-          platforms;android-33
-          build-tools;33.0.2
-          ndk;25.2.9519653
+        packages: "platform-tools,platforms;android-33,build-tools;33.0.2,ndk;25.2.9519653"
 
     - name: Install Buildozer
       run: |
@@ -53,7 +49,6 @@ jobs:
       run: |
         buildozer android debug
 
-    # ✅ AUTO UPLOAD APK
     - name: Upload APK
       uses: actions/upload-artifact@v4
       with:
