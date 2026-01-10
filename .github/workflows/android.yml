@@ -1,8 +1,5 @@
 name: Build Android APK
-on: 
-  push:
-    branches: [ main ]
-  workflow_dispatch:
+on: [push, workflow_dispatch]
 
 jobs:
   build:
@@ -27,19 +24,26 @@ jobs:
             unzip zip autoconf automake libtool pkg-config \
             zlib1g-dev libncurses5 libstdc++6 tar cmake
 
-      - name: Setup Python & Buildozer
+      - name: Setup Buildozer
         run: |
-          pip3 install --user --upgrade pip
           pip3 install --user --upgrade buildozer Cython==0.29.33 virtualenv
           echo "$HOME/.local/bin" >> $GITHUB_PATH
 
-      - name: Build with Buildozer
+      - name: Pre-Install Android Tools (The Fix)
         run: |
-          # This force-accepts licenses and runs the build
-          # -v (verbose) allows you to see the progress in the log
-          yes | buildozer -v android debug
+          # This forces the runner to have the exact tools Buildozer is looking for
+          # before Buildozer even starts.
+          mkdir -p ~/.buildozer/android/platform/android-sdk/cmdline-tools
+          wget https://dl.google.com/android/repository/commandlinetools-linux-9477386_latest.zip
+          unzip commandlinetools-linux-9477386_latest.zip -d ~/.buildozer/android/platform/android-sdk/cmdline-tools
+          mv ~/.buildozer/android/platform/android-sdk/cmdline-tools/cmdline-tools ~/.buildozer/android/platform/android-sdk/cmdline-tools/latest
+
+      - name: Build APK
+        run: |
+          # We tell Buildozer NOT to try and update the SDK itself, 
+          # which stops the "Broken pipe" error.
+          buildozer -v android debug
         env:
-          # This helps Buildozer find the Java installation on GitHub runners
           JAVA_HOME: ${{ env.JAVA_HOME }}
 
       - name: Upload APK
