@@ -10,22 +10,21 @@ jobs:
     runs-on: ubuntu-22.04
 
     steps:
-    - name: Checkout repo
-      uses: actions/checkout@v4
+    - uses: actions/checkout@v4
 
-    # ✅ Java 17 (MANDATORY)
-    - name: Setup Java 17
+    # ✅ Java 17 is REQUIRED
+    - name: Setup Java
       uses: actions/setup-java@v4
       with:
         distribution: temurin
         java-version: 17
 
-    - name: Setup Python 3.10
+    - name: Setup Python
       uses: actions/setup-python@v5
       with:
         python-version: "3.10"
 
-    - name: Install system dependencies
+    - name: Install Linux deps
       run: |
         sudo apt update
         sudo apt install -y \
@@ -33,16 +32,12 @@ jobs:
           autoconf automake libtool \
           pkg-config libffi-dev libssl-dev zlib1g-dev cmake
 
-    # ✅ THIS IS THE CRITICAL FIX
+    # ✅ CORRECT PACKAGE FORMAT (THIS FIXES YOUR ERROR)
     - name: Setup Android SDK
       uses: android-actions/setup-android@v3
       with:
         accept-android-sdk-licenses: true
-        packages: |
-          platform-tools
-          platforms;android-33
-          build-tools;33.0.2
-          ndk;25.2.9519653
+        packages: platform-tools,platforms;android-33,build-tools;33.0.2,ndk;25.2.9519653
 
     - name: Install Buildozer
       run: |
