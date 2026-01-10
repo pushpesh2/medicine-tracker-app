@@ -57,3 +57,10 @@ jobs:
     - name: Build APK
       run: |
         buildozer android debug
+
+    - name: Upload APK artifact
+      uses: actions/upload-artifact@v3
+      with:
+        name: medicinetracker-apk
+        path: |
+          ./.buildozer/android/platform/build/dists/medicinetracker/bin/*.apk
