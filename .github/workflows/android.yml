@@ -1,4 +1,4 @@
-name: Build Android APK
+name: Build Android APK (Ultra Fast)
 
 on:
   push:
@@ -10,11 +10,11 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      # Checkout repo
+      # 1️⃣ Checkout repo
       - name: Checkout
         uses: actions/checkout@v4
 
-      # Setup Python cache (for Buildozer dependencies)
+      # 2️⃣ Cache Python packages
       - name: Cache Python packages
         uses: actions/cache@v4
         with:
@@ -23,8 +23,17 @@ jobs:
           restore-keys: |
             python-pip-${{ runner.os }}-
 
-      # Build APK inside Docker
-      - name: Build APK using Buildozer Docker
+      # 3️⃣ Cache Buildozer folder
+      - name: Cache Buildozer
+        uses: actions/cache@v4
+        with:
+          path: ${{ github.workspace }}/.buildozer
+          key: buildozer-cache-${{ runner.os }}-${{ hashFiles('**/*.spec') }}
+          restore-keys: |
+            buildozer-cache-${{ runner.os }}-
+
+      # 4️⃣ Build APK using Docker
+      - name: Build APK
         uses: addnab/docker-run-action@v3
         with:
           image: kivy/buildozer:latest
@@ -32,30 +41,20 @@ jobs:
           run: |
             set -e
 
-            # Fix root warning & non-interactive mode
-            export BUILD_USER=root
+            # Non-interactive Buildozer
             export BUILD_NO_INTERACTIVE=1
+            export BUILD_USER=root
 
-            # Verify environment
-            python --version
-            buildozer --version
-
-            # Ensure cache directory exists
-            mkdir -p /app/.buildozer
-
-            # Clean old build if needed
-            buildozer android clean
-
-            # Build the APK
+            # Build APK
             buildozer android debug
 
-            # Copy APK to dist/ for GitHub Actions artifact
+            # Copy APK to dist/ folder
             mkdir -p /app/dist
             cp bin/*/*.apk /app/dist/
 
-      # Upload the APK as artifact
+      # 5️⃣ Upload APK artifact (use v4)
       - name: Upload APK
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         with:
           name: MedicineTracker-APK
           path: dist/*.apk
