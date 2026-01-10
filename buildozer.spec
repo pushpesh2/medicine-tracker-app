@@ -1,25 +1,34 @@
 [app]
-title = Medicine Tracker
-package.name = medicinetracker
-package.domain = com.pushpesh
-version = 1.0.0
+title = MyApp
+package.name = myapp
+package.domain = org.example
 
 source.dir = .
-source.main = main.py
+source.include_exts = py,png,jpg,kv,atlas
 
-requirements = python3,kivy==2.3.1,Pillow,requests,python-dateutil
+version = 0.1
+
+requirements = python3,kivy
 
 orientation = portrait
 
+fullscreen = 0
+
 android.api = 33
 android.minapi = 21
-android.ndk = 25b
+android.sdk = 33
+
 android.build_tools_version = 33.0.2
+android.ndk = 25b
 android.ndk_api = 21
-android.archs = arm64-v8a, armeabi-v7a
+
+android.accept_sdk_license = True
+android.skip_update = True
 
 android.permissions = INTERNET
-android.copy_libs = 1
-p4a.bootstrap = sdl2
 
-log_level = 2
+android.archs = arm64-v8a,armeabi-v7a
+
+# Fix build cache issues
+p4a.local_recipes = 
+p4a.bootstrap = sdl2
