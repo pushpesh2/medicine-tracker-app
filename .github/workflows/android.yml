@@ -13,30 +13,33 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      - name: Set up Docker Buildozer environment
+      - name: Build APK inside Docker
         uses: addnab/docker-run-action@v3
         with:
           image: kivy/buildozer:latest
           options: --workdir /app -v ${{ github.workspace }}:/app
           run: |
-            # Avoid root prompt and non-interactive
+            # Force non-interactive and allow root
             export BUILD_NO_INTERACTIVE=1
+            export BUILD_USER=root
             export HOME=/app
-            # Ensure directories exist
-            mkdir -p /app/.buildozer
-            mkdir -p /app/dist
-            # Install/update pip dependencies (if needed)
-            pip install --upgrade cython pillow requests python-dateutil
+
             # Clean old builds
-            buildozer android clean
-            # Build APK
-            buildozer -v android debug deploy run
-            # Copy APK to workspace
-            cp ./.buildozer/android/platform/build-arm64-v8a/dists/medicinetracker/bin/*.apk /app/dist/ || true
-            cp ./.buildozer/android/platform/build-armeabi-v7a/dists/medicinetracker/bin/*.apk /app/dist/ || true
+            buildozer android clean || true
+
+            # Build APK (only debug for CI)
+            buildozer -v android debug
+
+            # Create output folder for GitHub Actions
+            mkdir -p /app/dist
+
+            # Copy all built APKs (both architectures if exist)
+            cp ./.buildozer/android/platform/build-armeabi-v7a/dists/medicinetracker/bin/*.apk /app/dist/ 2>/dev/null || true
+            cp ./.buildozer/android/platform/build-arm64-v8a/dists/medicinetracker/bin/*.apk /app/dist/ 2>/dev/null || true
 
       - name: Upload APK artifact
         uses: actions/upload-artifact@v4
         with:
           name: MedicineTracker-APK
           path: dist/*.apk
+          if-no-files-found: warn
