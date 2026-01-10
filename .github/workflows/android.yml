@@ -1,4 +1,4 @@
-name: Android APK (Docker Only)
+name: Android APK (Guaranteed Fix)
 
 on:
   push:
@@ -13,22 +13,24 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Hard clean host build tools
+      # 🔥 Nuke host artifacts BEFORE docker
+      - name: Hard clean workspace
         run: |
-          rm -rf ~/.buildozer
-          rm -rf .buildozer
-          rm -rf .venv
-          rm -rf bin
-          rm -rf dist
+          rm -rf .venv .buildozer bin dist __pycache__
 
-      - name: Build APK (Docker ONLY)
+      - name: Build APK with Docker (isolated)
         run: |
           docker run --rm \
             -e BUILDOZER_ALLOW_ROOT=1 \
+            -e PATH="/usr/local/bin:/usr/bin:/bin" \
             -v "${{ github.workspace }}:/workspace" \
             -w /workspace \
             kivy/buildozer:latest \
-            buildozer android debug
+            bash -c "
+              rm -rf .venv .buildozer &&
+              which buildozer &&
+              buildozer android debug
+            "
 
       - name: Upload APK
         uses: actions/upload-artifact@v4
