@@ -2,90 +2,113 @@ name: Build Android APK
 
 on:
   push:
-    branches: [ main ]
+    branches: [ "main" ]
+  workflow_dispatch:
 
 jobs:
   build:
     runs-on: ubuntu-24.04
 
-    env:
-      ANDROID_SDK_ROOT: /home/runner/.buildozer/android/platform/android-sdk
-      ANDROID_HOME: /home/runner/.buildozer/android/platform/android-sdk
-
     steps:
-    # 1️⃣ Checkout
-    - name: Checkout repo
-      uses: actions/checkout@v4
+      - name: Checkout repository
+        uses: actions/checkout@v4
 
-    # 2️⃣ Python 3.10 (ONLY)
-    - name: Setup Python
-      uses: actions/setup-python@v5
-      with:
-        python-version: "3.10"
-        cache: pip
+      - name: Set up Python 3.10
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.10"
 
-    # 3️⃣ System deps (Ubuntu 24 compatible)
-    - name: Install system dependencies
-      run: |
-        sudo apt update
-        sudo apt install -y \
-          openjdk-17-jdk \
-          git zip unzip \
-          autoconf automake autoconf-archive \
-          libtool libtool-bin libltdl-dev \
-          pkg-config \
-          zlib1g-dev \
-          libncurses6 \
-          libffi-dev \
-          libssl-dev \
-          cmake \
-          wget
+      - name: Install system dependencies
+        run: |
+          sudo apt update
+          sudo apt install -y \
+            zip unzip git \
+            openjdk-17-jdk \
+            autoconf automake libtool \
+            pkg-config \
+            zlib1g-dev libffi-dev \
+            libssl-dev \
+            libncurses6
 
-    # 4️⃣ Python deps (NO fake versions)
-    - name: Install Python dependencies
-      run: |
-        python -m pip install --upgrade pip
-        pip install \
-          cython==0.29.36 \
-          buildozer==1.5.0
+      - name: Install Buildozer
+        run: |
+          pip install --upgrade pip
+          pip install buildozer cython
 
-    # 5️⃣ Install Android SDK cmdline-tools (CORRECT LAYOUT)
-    - name: Install Android SDK cmdline-tools
-      run: |
-        mkdir -p $ANDROID_SDK_ROOT/cmdline-tools
-        cd $ANDROID_SDK_ROOT/cmdline-tools
+      # -------------------------------
+      # Cache Android SDK + Buildozer
+      # -------------------------------
+      - name: Cache Android SDK
+        uses: actions/cache@v4
+        with:
+          path: ~/.buildozer/android/platform/android-sdk
+          key: android-sdk-${{ runner.os }}
 
-        wget https://dl.google.com/android/repository/commandlinetools-linux-11076708_latest.zip
-        unzip -q commandlinetools-linux-11076708_latest.zip
-        mv cmdline-tools latest
+      - name: Cache Buildozer
+        uses: actions/cache@v4
+        with:
+          path: ~/.buildozer
+          key: buildozer-${{ runner.os }}-${{ hashFiles('buildozer.spec') }}
 
-    # 6️⃣ 🔴 LEGACY FIX — REQUIRED BY BUILDOZER
-    - name: Create legacy sdkmanager path
-      run: |
-        mkdir -p $ANDROID_SDK_ROOT/tools/bin
-        ln -sf \
-          $ANDROID_SDK_ROOT/cmdline-tools/latest/bin/sdkmanager \
-          $ANDROID_SDK_ROOT/tools/bin/sdkmanager
+      # -------------------------------
+      # Install Android SDK tools
+      # -------------------------------
+      - name: Install Android SDK
+        run: |
+          mkdir -p ~/.buildozer/android/platform/android-sdk
+          cd ~/.buildozer/android/platform/android-sdk
+          wget https://dl.google.com/android/repository/commandlinetools-linux-11076708_latest.zip
+          unzip commandlinetools-linux-*.zip
+          mkdir -p cmdline-tools/latest
+          mv cmdline-tools/* cmdline-tools/latest || true
 
-    # 7️⃣ Accept licenses + install SDK/NDK
-    - name: Install Android SDK & NDK
-      run: |
-        yes | $ANDROID_SDK_ROOT/tools/bin/sdkmanager --licenses
+      # 🔥 CRITICAL FIX FOR BUILDOZER
+      - name: Create legacy sdkmanager path for Buildozer
+        run: |
+          mkdir -p $HOME/.buildozer/android/platform/android-sdk/tools/bin
+          ln -sf \
+            $HOME/.buildozer/android/platform/android-sdk/cmdline-tools/latest/bin/sdkmanager \
+            $HOME/.buildozer/android/platform/android-sdk/tools/bin/sdkmanager
 
-        $ANDROID_SDK_ROOT/tools/bin/sdkmanager \
-          "platform-tools" \
-          "platforms;android-33" \
-          "build-tools;33.0.2" \
-          "ndk;27.2.12479018"
+      - name: Accept Android licenses
+        run: |
+          yes | $HOME/.buildozer/android/platform/android-sdk/cmdline-tools/latest/bin/sdkmanager --licenses
 
-    # 8️⃣ Build APK
-    - name: Build APK with Buildozer
-      run: |
-        buildozer -v android debug
+      - name: Install Android platforms and build-tools
+        run: |
+          sdkmanager \
+            "platform-tools" \
+            "platforms;android-33" \
+            "build-tools;33.0.2"
 
-    # 9️⃣ Upload APK
-    - name: Upload APK
-      uses: actions/upload-artifact@v4
-      with:
-        name: MedicineTracker-APK
-        path: bin/*.apk
+      # -------------------------------
+      # ✅ FORCE NDK r25b (FIXES SDL2 ERROR)
+      # -------------------------------
+      - name: Install Android NDK r25b
+        run: |
+          sdkmanager "ndk;25.2.9519653"
+
+      - name: Force NDK r25b environment
+        run: |
+          echo "ANDROID_SDK_ROOT=$HOME/.buildozer/android/platform/android-sdk" >> $GITHUB_ENV
+          echo "ANDROID_HOME=$HOME/.buildozer/android/platform/android-sdk" >> $GITHUB_ENV
+          echo "ANDROID_NDK_HOME=$HOME/.buildozer/android/platform/android-sdk/ndk/25.2.9519653" >> $GITHUB_ENV
+          echo "ANDROID_NDK_ROOT=$HOME/.buildozer/android/platform/android-sdk/ndk/25.2.9519653" >> $GITHUB_ENV
+          echo "ANDROID_NDK=$HOME/.buildozer/android/platform/android-sdk/ndk/25.2.9519653" >> $GITHUB_ENV
+
+      # -------------------------------
+      # Clean & Build
+      # -------------------------------
+      - name: Clean Buildozer
+        run: |
+          buildozer android clean || true
+
+      - name: Build Debug APK
+        run: |
+          buildozer -v android debug
+
+      - name: Upload APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: MedicineTracker-APK
+          path: bin/*.apk
