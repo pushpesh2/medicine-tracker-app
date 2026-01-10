@@ -7,7 +7,7 @@ on:
 
 jobs:
   build:
-    runs-on: ubuntu-24.04
+    runs-on: ubuntu-22.04   # ⚠️ IMPORTANT (24.04 breaks Android tools)
 
     env:
       ANDROID_HOME: $HOME/android-sdk
@@ -16,7 +16,7 @@ jobs:
     steps:
     - uses: actions/checkout@v4
 
-    - name: Setup Python 3.10
+    - name: Setup Python
       uses: actions/setup-python@v5
       with:
         python-version: "3.10"
@@ -32,25 +32,32 @@ jobs:
           libncurses6 \
           cmake
 
-    - name: Install Buildozer
+    - name: Install Python tools
       run: |
         python -m pip install --upgrade pip
         pip install buildozer==1.5.0 cython
 
-    # ✅ FIXED SDK INSTALL
-    - name: Install Android command line tools
+    # ✅ CORRECT SDK INSTALL (NO BROKEN PATHS)
+    - name: Install Android SDK command line tools
       run: |
         mkdir -p $ANDROID_HOME/cmdline-tools
-        cd $ANDROID_HOME/cmdline-tools
+        cd $ANDROID_HOME
+
         wget https://dl.google.com/android/repository/commandlinetools-linux-11076708_latest.zip -O tools.zip
         unzip -q tools.zip
-        mv cmdline-tools latest
-        chmod +x latest/bin/sdkmanager
+
+        mv cmdline-tools cmdline-tools-temp
+        mkdir -p cmdline-tools/latest
+        mv cmdline-tools-temp/* cmdline-tools/latest/
+
+        rm -rf cmdline-tools-temp tools.zip
 
     - name: Install Android SDK packages
       run: |
-        export PATH=$ANDROID_HOME/cmdline-tools/latest/bin:$ANDROID_HOME/platform-tools:$PATH
+        export PATH=$ANDROID_HOME/cmdline-tools/latest/bin:$PATH
+
         yes | sdkmanager --licenses
+
         sdkmanager \
           "platform-tools" \
           "platforms;android-33" \
