@@ -12,58 +12,50 @@ jobs:
       ANDROID_HOME: $HOME/.buildozer/android/platform/android-sdk
       ANDROID_SDK_ROOT: $HOME/.buildozer/android/platform/android-sdk
       ANDROID_NDK_HOME: $HOME/.buildozer/android/platform/android-ndk-r25b
-      PATH: $HOME/.buildozer/android/platform/android-sdk/cmdline-tools/latest/bin:$HOME/.buildozer/android/platform/android-sdk/platform-tools:$PATH
+      PATH: $HOME/.buildozer/android/platform/android-sdk/cmdline-tools/latest/bin:$HOME/.buildozer/android/platform/android-sdk/platform-tools:$PATH:$HOME/.local/bin
 
     steps:
-    # 1️⃣ Install system dependencies
-    - name: Install system packages
-      run: |
-        sudo apt update
-        sudo apt install -y \
-          git curl unzip tar openjdk-17-jdk zip \
-          autoconf automake autoconf-archive m4 \
-          libtool libtool-bin pkg-config \
-          zlib1g-dev libffi-dev libssl-dev \
-          libncurses6 cmake
-
-    # 2️⃣ Install modern Git to avoid REST API fallback
-    - name: Install Git 2.40+
-      run: |
-        sudo add-apt-repository ppa:git-core/ppa -y
-        sudo apt update
-        sudo apt install -y git
-
-    # 3️⃣ Checkout repository properly (no REST API fallback)
     - name: Checkout repository
       uses: actions/checkout@v4
       with:
         fetch-depth: 0
         submodules: recursive
 
-    # 4️⃣ Setup Python
     - name: Setup Python 3.10
       uses: actions/setup-python@v5
       with:
-        python-version: "3.10"
+        python-version: 3.10
         cache: pip
 
-    # 5️⃣ Install Python tools
-    - name: Install Buildozer & Cython
+    - name: Install Python tools
       run: |
         python -m pip install --upgrade pip
-        pip install buildozer==1.5.0 cython
+        pip install --user buildozer==1.5.0 cython
 
-    # 6️⃣ Install Android SDK/NDK
-    - name: Setup Android SDK
+    - name: Install required system tools in user-space
+      run: |
+        mkdir -p $HOME/bin
+        export PATH=$HOME/bin:$PATH
+        # Install wget, unzip, tar
+        curl -L https://ftp.gnu.org/gnu/tar/tar-latest.tar.gz -o tar.tar.gz
+        mkdir tar_src && tar -xzf tar.tar.gz -C tar_src --strip-components=1
+        cd tar_src && ./configure --prefix=$HOME && make -j$(nproc) && make install
+        cd ..
+        curl -L https://downloads.sourceforge.net/infozip/unzip60.tar.gz -o unzip.tar.gz
+        mkdir unzip_src && tar -xzf unzip.tar.gz -C unzip_src --strip-components=1
+        cd unzip_src && make -f unix/Makefile generic && cp unzip $HOME/bin
+        curl -LO https://mirrors.edge.kernel.org/pub/software/scm/git/git-2.42.0.tar.gz
+        tar -xzf git-2.42.0.tar.gz
+        cd git-2.42.0 && make prefix=$HOME all && make prefix=$HOME install
+        export PATH=$HOME/bin:$PATH
+
+    - name: Install Android SDK
       run: |
         mkdir -p $ANDROID_HOME/cmdline-tools
         cd $ANDROID_HOME/cmdline-tools
         curl -LO https://dl.google.com/android/repository/commandlinetools-linux-11076708_latest.zip
         unzip -q commandlinetools-linux-11076708_latest.zip
         mv cmdline-tools latest
-
-    - name: Accept SDK licenses & install packages
-      run: |
         yes | $ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager --licenses
         $ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager \
           "platform-tools" \
@@ -71,14 +63,13 @@ jobs:
           "build-tools;33.0.2" \
           "ndk;25.2.9519653"
 
-    # 7️⃣ Cache Buildozer builds for faster workflow
     - name: Cache Buildozer
       uses: actions/cache@v4
       with:
         path: ~/.buildozer
         key: buildozer-${{ runner.os }}-${{ hashFiles('**/buildozer.spec') }}
 
-    # 8️⃣ Build the APK
     - name: Build APK
       run: |
+        export PATH=$HOME/.local/bin:$PATH
         buildozer android debug
