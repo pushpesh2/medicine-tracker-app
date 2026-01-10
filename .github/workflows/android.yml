@@ -1,8 +1,8 @@
-name: Build Android APK
+name: Build Android APK (Buildozer)
 
 on:
   push:
-    branches: [ main ]
+    branches: [ "main" ]
   workflow_dispatch:
 
 jobs:
@@ -10,10 +10,23 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      - name: Checkout
+      - name: Checkout repository
         uses: actions/checkout@v4
 
-      - name: Build APK (Docker / Buildozer)
+      # ---------------- CACHE ----------------
+      - name: Cache Buildozer & Gradle
+        uses: actions/cache@v4
+        with:
+          path: |
+            .buildozer
+            .build_cache
+            ~/.gradle
+          key: buildozer-${{ runner.os }}-${{ hashFiles('buildozer.spec') }}
+          restore-keys: |
+            buildozer-${{ runner.os }}-
+
+      # ---------------- BUILD ----------------
+      - name: Build APK using Buildozer
         uses: addnab/docker-run-action@v3
         with:
           image: kivy/buildozer:latest
@@ -23,14 +36,20 @@ jobs:
           run: |
             set -e
 
-            mkdir -p .buildozer_local .build_cache
+            # ---- HARD FIXES ----
+            export BUILDOZER_ALLOW_ROOT=1
+            export BUILDOZER_BUILD_DIR=/workspace/.build_cache
+            export BUILDOZER_USER_DATA_DIR=/workspace/.buildozer
 
-            buildozer \
-              --allow-root \
-              --build-dir .build_cache \
-              --user-data-dir .buildozer_local \
-              android debug
+            mkdir -p .build_cache .buildozer
 
+            # ---- REQUIRED MIGRATION ----
+            sed -i 's/^android.arch = .*/android.archs = arm64-v8a,armeabi-v7a/' buildozer.spec || true
+
+            # ---- BUILD ----
+            buildozer android debug
+
+      # ---------------- UPLOAD ----------------
       - name: Upload APK
         uses: actions/upload-artifact@v4
         with:
