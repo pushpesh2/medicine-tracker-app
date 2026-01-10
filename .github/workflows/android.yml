@@ -25,19 +25,21 @@ jobs:
         cache: pip
 
     - name: Install system dependencies
-      run: |
-        sudo apt update
-        sudo apt install -y \
-          openjdk-17-jdk \
-          git zip unzip \
-          autoconf automake autoconf-archive m4 \
-          libtool libtool-bin \
-          pkg-config \
-          zlib1g-dev \
-          libffi-dev \
-          libssl-dev \
-          libncurses6 \
-          cmake
+  run: |
+    sudo apt update
+    sudo apt install -y \
+      tar \
+      coreutils \
+      openjdk-17-jdk \
+      git zip unzip \
+      autoconf automake autoconf-archive m4 \
+      libtool libtool-bin \
+      pkg-config \
+      zlib1g-dev \
+      libffi-dev \
+      libssl-dev \
+      libncurses6 \
+      cmake
 
     - name: Install Python tools
       run: |
