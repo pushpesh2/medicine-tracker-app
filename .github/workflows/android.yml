@@ -14,23 +14,13 @@ jobs:
       ANDROID_SDK_ROOT: $HOME/android-sdk
 
     steps:
-    # -------------------------------------------------
-    # Checkout
-    # -------------------------------------------------
-    - name: Checkout repository
-      uses: actions/checkout@v4
+    - uses: actions/checkout@v4
 
-    # -------------------------------------------------
-    # Python (Buildozer DOES NOT support Python 3.12)
-    # -------------------------------------------------
     - name: Setup Python 3.10
       uses: actions/setup-python@v5
       with:
         python-version: "3.10"
 
-    # -------------------------------------------------
-    # System dependencies (tested on 24.04)
-    # -------------------------------------------------
     - name: Install system dependencies
       run: |
         sudo apt update
@@ -42,34 +32,21 @@ jobs:
           libncurses6 \
           cmake
 
-    # -------------------------------------------------
-    # Python tools
-    # -------------------------------------------------
-    - name: Install Buildozer + Cython
+    - name: Install Buildozer
       run: |
         python -m pip install --upgrade pip
         pip install buildozer==1.5.0 cython
 
-    # -------------------------------------------------
-    # Android SDK (FIXED STRUCTURE)
-    # -------------------------------------------------
+    # ✅ FIXED SDK INSTALL
     - name: Install Android command line tools
       run: |
         mkdir -p $ANDROID_HOME/cmdline-tools
         cd $ANDROID_HOME/cmdline-tools
-
         wget https://dl.google.com/android/repository/commandlinetools-linux-11076708_latest.zip -O tools.zip
         unzip -q tools.zip
-
-        # 🔥 CRITICAL FIX (nested folder issue)
         mv cmdline-tools latest
+        chmod +x latest/bin/sdkmanager
 
-        rm tools.zip
-        chmod +x $ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager
-
-    # -------------------------------------------------
-    # Android packages
-    # -------------------------------------------------
     - name: Install Android SDK packages
       run: |
         export PATH=$ANDROID_HOME/cmdline-tools/latest/bin:$ANDROID_HOME/platform-tools:$PATH
@@ -80,20 +57,13 @@ jobs:
           "build-tools;33.0.2" \
           "ndk;25.2.9519653"
 
-    # -------------------------------------------------
-    # Build APK (NON-INTERACTIVE ROOT FIX)
-    # -------------------------------------------------
     - name: Build APK
       run: |
         export PATH=$ANDROID_HOME/cmdline-tools/latest/bin:$ANDROID_HOME/platform-tools:$PATH
-        buildozer -v android debug --no-interaction
+        buildozer android debug --no-interaction
 
-    # -------------------------------------------------
-    # Upload APK
-    # -------------------------------------------------
-    - name: Upload APK artifact
+    - name: Upload APK
       uses: actions/upload-artifact@v4
       with:
         name: MedicineTracker-APK
         path: bin/*.apk
-        if-no-files-found: error
