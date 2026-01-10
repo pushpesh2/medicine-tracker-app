@@ -10,50 +10,54 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      # 1️⃣ Checkout repo
       - name: Checkout
         uses: actions/checkout@v4
 
-      # 2️⃣ Cache Python packages
-      - name: Cache Python packages
+      # Hash app source files to detect changes
+      - name: Calculate source hash
+        id: hash
+        run: |
+          echo "HASH=$(find . -type f \( -name '*.py' -o -name '*.kv' -o -name '*.spec' -o -name '*.png' \) -print0 | sort -z | xargs -0 sha256sum | sha256sum | cut -d' ' -f1)" >> $GITHUB_OUTPUT
+
+      # Restore Buildozer cache if available
+      - name: Restore Build Cache
+        id: restore
         uses: actions/cache@v4
         with:
-          path: ~/.cache/pip
-          key: python-pip-${{ runner.os }}-${{ hashFiles('**/requirements.txt') }}
+          path: .buildozer
+          key: buildozer-${{ steps.hash.outputs.HASH }}
           restore-keys: |
-            python-pip-${{ runner.os }}-
+            buildozer-
 
-      # 3️⃣ Cache Buildozer folder
-      - name: Cache Buildozer
-        uses: actions/cache@v4
-        with:
-          path: ${{ github.workspace }}/.buildozer
-          key: buildozer-cache-${{ runner.os }}-${{ hashFiles('**/*.spec') }}
-          restore-keys: |
-            buildozer-cache-${{ runner.os }}-
+      # Check if build is needed
+      - name: Check if build needed
+        id: check
+        run: |
+          if [ -d ".buildozer" ] && [ -f ".buildozer/build_complete" ]; then
+            echo "BUILD_NEEDED=false" >> $GITHUB_OUTPUT
+          else
+            echo "BUILD_NEEDED=true" >> $GITHUB_OUTPUT
+          fi
 
-      # 4️⃣ Build APK using Docker
+      # Build APK using Docker if needed
       - name: Build APK
+        if: steps.check.outputs.BUILD_NEEDED == 'true'
         uses: addnab/docker-run-action@v3
         with:
           image: kivy/buildozer:latest
           options: --workdir /app -v ${{ github.workspace }}:/app
           run: |
             set -e
-
-            # Non-interactive Buildozer
             export BUILD_NO_INTERACTIVE=1
             export BUILD_USER=root
-
-            # Build APK
             buildozer android debug
-
-            # Copy APK to dist/ folder
             mkdir -p /app/dist
             cp bin/*/*.apk /app/dist/
+            touch .buildozer/build_complete
 
-      # 5️⃣ Upload APK artifact (use v4)
+      # Upload APK artifact
       - name: Upload APK
+        if: steps.check.outputs.BUILD_NEEDED == 'true'
         uses: actions/upload-artifact@v4
         with:
           name: MedicineTracker-APK
