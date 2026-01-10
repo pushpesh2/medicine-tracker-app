@@ -15,17 +15,14 @@ jobs:
       PATH: $HOME/.buildozer/android/platform/android-sdk/cmdline-tools/latest/bin:$HOME/.buildozer/android/platform/android-sdk/platform-tools:$PATH
 
     steps:
+    # ✅ Full Git clone (avoids tar issue)
     - name: Checkout repository
       uses: actions/checkout@v4
       with:
         fetch-depth: 0
+        submodules: true
 
-    - name: Setup Python
-      uses: actions/setup-python@v5
-      with:
-        python-version: "3.10"
-        cache: pip
-
+    # ✅ Install system dependencies
     - name: Install system dependencies
       run: |
         apt-get update
@@ -36,21 +33,32 @@ jobs:
           zlib1g-dev libffi-dev libssl-dev \
           libncurses6 cmake
 
+    # ✅ Install Python & tools
+    - name: Setup Python
+      uses: actions/setup-python@v5
+      with:
+        python-version: "3.10"
+        cache: pip
+
     - name: Install Python tools
       run: |
         python -m pip install --upgrade pip
-        pip install --upgrade buildozer==1.5.0 cython
+        pip install buildozer==1.5.0 cython
 
+    # ✅ Install Android SDK command line tools
     - name: Install Android SDK
       run: |
         mkdir -p $ANDROID_HOME/cmdline-tools
         cd $ANDROID_HOME/cmdline-tools
-        curl -O https://dl.google.com/android/repository/commandlinetools-linux-11076708_latest.zip
+        curl -LO https://dl.google.com/android/repository/commandlinetools-linux-11076708_latest.zip
         unzip -q commandlinetools-linux-11076708_latest.zip
         mv cmdline-tools latest
 
-    - name: Accept SDK licenses and install packages
+    # ✅ Install Android SDK packages (with legacy path for Buildozer)
+    - name: Setup Android SDK packages
       run: |
+        mkdir -p $ANDROID_HOME/tools/bin
+        ln -sf $ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager $ANDROID_HOME/tools/bin/sdkmanager
         yes | sdkmanager --licenses
         sdkmanager \
           "platform-tools" \
@@ -58,19 +66,14 @@ jobs:
           "build-tools;33.0.2" \
           "ndk;25.2.9519653"
 
+    # ✅ Cache Buildozer to speed up future builds
     - name: Cache Buildozer
       uses: actions/cache@v4
       with:
         path: ~/.buildozer
-        key: buildozer-${{ runner.os }}-${{ hashFiles('**/buildozer.spec') }}
+        key: buildozer-${{ runner.os }}
 
-    - name: Patch SDL2 for Android NDK r27+
-      run: |
-        SDL_PATH="$HOME/.buildozer/android/platform/build-armeabi-v7a_arm64-v8a/build/bootstrap_builds/sdl2/jni/SDL"
-        if [ -f "$SDL_PATH/src/sensor/android/SDL_androidsensor.c" ]; then
-          sed -i 's/ALooper_pollAll(0, NULL, &events, (void **)&source)/ALooper_pollOnce(0, NULL, &events, (void **)&source)/g' "$SDL_PATH/src/sensor/android/SDL_androidsensor.c"
-        fi
-
+    # ✅ Build the APK
     - name: Build APK
       run: |
         buildozer android debug
