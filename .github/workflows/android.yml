@@ -9,26 +9,9 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-    - name: Checkout repository
+    - name: Checkout Repository
       uses: actions/checkout@v4
-      with:
-        fetch-depth: 0
-        submodules: recursive
 
-    # -------------------------------
-    # Cache the .buildozer folder
-    # -------------------------------
-    - name: Cache Buildozer
-      uses: actions/cache@v4
-      with:
-        path: ./.buildozer
-        key: buildozer-${{ runner.os }}-${{ hashFiles('**/buildozer.spec') }}
-        restore-keys: |
-          buildozer-${{ runner.os }}-
-
-    # -------------------------------
-    # Build APK using Buildozer Docker
-    # -------------------------------
     - name: Build APK using Buildozer Docker
       uses: addnab/docker-run-action@v3
       with:
@@ -37,21 +20,29 @@ jobs:
         run: |
           set -e
 
-          # Show Python and Buildozer versions
+          # Force non-interactive mode (CI safe)
+          export BUILD_USER=root
+          export BUILD_NO_INTERACTIVE=1
+
+          # Show Python/Buildozer versions
           python --version
           buildozer --version
 
           # Ensure .buildozer folder exists
           mkdir -p /app/.buildozer
 
+          # Clean previous builds (optional)
+          buildozer android clean
+
           # Build the APK (debug)
           buildozer android debug
 
-    # -------------------------------
-    # Upload APK as artifact
-    # -------------------------------
-    - name: Upload debug APK
+          # Optional: move the APK to workspace for upload
+          mkdir -p /app/dist
+          cp bin/*/*.apk /app/dist/
+    
+    - name: Upload APK
       uses: actions/upload-artifact@v4
       with:
-        name: medicinetracker-debug-apk
-        path: ./.buildozer/android/platform/build/dists/medicinetracker/bin/*.apk
+        name: medicinetracker-apk
+        path: dist/
