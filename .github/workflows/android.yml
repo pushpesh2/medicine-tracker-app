@@ -10,29 +10,21 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      - name: Checkout
+      # 1. Checkout
+      - name: Checkout repository
         uses: actions/checkout@v4
 
-      # 🔥 Ensure no local buildozer
-      - name: Remove local venv & old builds
-        run: |
-          rm -rf .venv
-          rm -rf .buildozer
-          rm -rf bin
-          rm -rf dist
+      # 2. Build APK using maintained Buildozer Action
+      - name: Build APK
+        uses: ArtemSBulgakov/buildozer-action@v1
+        with:
+          workdir: .
+          buildozer_version: stable
 
-      - name: Build APK inside Docker
-        run: |
-          docker run --rm \
-            -e BUILDOZER_ALLOW_ROOT=1 \
-            -v "${{ github.workspace }}:/workspace" \
-            -w /workspace \
-            kivy/buildozer:latest \
-            bash -c "buildozer android debug"
-
+      # 3. Upload APK
       - name: Upload APK
         uses: actions/upload-artifact@v4
         with:
           name: MedicineTracker-APK
-          path: bin/*.apk
+          path: ${{ steps.buildozer.outputs.filename }}
           if-no-files-found: error
