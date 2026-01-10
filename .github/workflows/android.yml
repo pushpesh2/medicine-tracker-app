@@ -1,4 +1,4 @@
-name: Build Android APK (Buildozer)
+name: Build Android APK
 
 on:
   push:
@@ -10,50 +10,21 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      # -------------------------------
       # 1️⃣ Checkout
-      # -------------------------------
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      # -------------------------------
-      # 2️⃣ HARD CLEAN (MANDATORY)
-      # -------------------------------
-      - name: Clean old build files
-        run: |
-          sudo rm -rf .venv
-          sudo rm -rf .buildozer
-          sudo rm -rf bin
-          sudo rm -rf ~/.buildozer
-          sudo rm -rf ~/.cache/buildozer
-          sudo rm -rf ~/.cache/pip
-
-      # -------------------------------
-      # 3️⃣ Cache Buildozer (FAST)
-      # -------------------------------
-      - name: Cache Buildozer
-        uses: actions/cache@v4
-        with:
-          path: |
-            ~/.buildozer
-            ~/.cache/pip
-          key: buildozer-${{ runner.os }}-${{ hashFiles('buildozer.spec') }}
-
-      # -------------------------------
-      # 4️⃣ Build APK (NO ROOT PROMPT)
-      # -------------------------------
+      # 2️⃣ Run Buildozer ONLY inside Docker
       - name: Build APK using Docker
         run: |
           docker run --rm \
-            -u $(id -u):$(id -g) \
-            -v "$PWD:/app" \
-            -v "$HOME/.buildozer:/home/user/.buildozer" \
-            kivy/buildozer \
+            -e BUILDOZER_ALLOW_ROOT=1 \
+            -v "${{ github.workspace }}:/workspace" \
+            -w /workspace \
+            kivy/buildozer:latest \
             buildozer android debug
 
-      # -------------------------------
-      # 5️⃣ Upload APK
-      # -------------------------------
+      # 3️⃣ Upload APK
       - name: Upload APK
         uses: actions/upload-artifact@v4
         with:
