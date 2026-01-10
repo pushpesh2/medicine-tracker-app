@@ -2,8 +2,7 @@ name: Build Android APK
 
 on:
   push:
-    branches:
-      - main
+    branches: [ main ]
   workflow_dispatch:
 
 jobs:
@@ -11,8 +10,7 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      - name: Checkout repository
-        uses: actions/checkout@v4
+      - uses: actions/checkout@v4
 
       - name: Setup Python
         uses: actions/setup-python@v5
@@ -23,9 +21,9 @@ jobs:
         run: |
           sudo apt update
           sudo apt install -y \
-            zip unzip \
-            build-essential \
             openjdk-17-jdk \
+            unzip zip \
+            build-essential \
             libffi-dev \
             libssl-dev \
             libz-dev
@@ -35,21 +33,30 @@ jobs:
           pip install --upgrade pip
           pip install buildozer cython
 
-      - name: Setup Android SDK
-        uses: android-actions/setup-android@v3
-        with:
-          accept-android-sdk-licenses: true
-          packages: >
-            platform-tools
-            platforms;android-33
-            build-tools;33.0.2
-            ndk;25.2.9519653
-
-      - name: Clean cached Android SDK (IMPORTANT)
+      # IMPORTANT: Let Buildozer manage SDK
+      - name: Prepare Android SDK for Buildozer
         run: |
-          rm -rf ~/.buildozer/android/platform/android-sdk
+          mkdir -p ~/.buildozer/android/platform
+          cd ~/.buildozer/android/platform
+
+          wget https://dl.google.com/android/repository/commandlinetools-linux-12266719_latest.zip
+          unzip commandlinetools-linux-12266719_latest.zip
+          mkdir -p android-sdk/cmdline-tools/latest
+          mv cmdline-tools/* android-sdk/cmdline-tools/latest/
+
+          export ANDROID_HOME=$HOME/.buildozer/android/platform/android-sdk
+          export PATH=$ANDROID_HOME/cmdline-tools/latest/bin:$PATH
+
+          yes | sdkmanager --licenses
+          sdkmanager \
+            "platform-tools" \
+            "platforms;android-33" \
+            "build-tools;33.0.2" \
+            "ndk;25.2.9519653"
 
       - name: Build APK
+        env:
+          ANDROID_HOME: /home/runner/.buildozer/android/platform/android-sdk
         run: |
           buildozer -v android debug
 
