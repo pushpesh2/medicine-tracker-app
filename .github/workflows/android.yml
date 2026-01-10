@@ -1,4 +1,4 @@
-name: Android APK Build
+name: Build Android APK
 
 on:
   push:
@@ -12,6 +12,7 @@ jobs:
     env:
       ANDROID_HOME: $HOME/android-sdk
       ANDROID_SDK_ROOT: $HOME/android-sdk
+      JAVA_HOME: /usr/lib/jvm/java-17-openjdk-amd64
 
     steps:
     - name: Checkout
@@ -22,12 +23,12 @@ jobs:
       with:
         python-version: "3.10"
 
-    - name: Install system packages
+    - name: Install system dependencies
       run: |
         sudo apt update
         sudo apt install -y \
           openjdk-17-jdk unzip zip git \
-          build-essential autoconf automake libtool \
+          autoconf automake libtool \
           pkg-config libffi-dev libssl-dev zlib1g-dev cmake
 
     - name: Install Buildozer
@@ -35,7 +36,7 @@ jobs:
         python -m pip install --upgrade pip
         pip install buildozer cython
 
-    - name: Install Android SDK cmdline-tools (FIXED)
+    - name: Install Android SDK cmdline-tools (CORRECT)
       run: |
         mkdir -p $ANDROID_HOME/cmdline-tools
         cd $ANDROID_HOME/cmdline-tools
@@ -43,15 +44,15 @@ jobs:
         wget https://dl.google.com/android/repository/commandlinetools-linux-11076708_latest.zip -O tools.zip
         unzip -q tools.zip
 
-        # FIX NESTING ISSUE
-        mv cmdline-tools latest
-        rm -rf latest/cmdline-tools
-        rm tools.zip
+        # FIX: move CONTENTS, keep lib/
+        mkdir -p latest
+        mv cmdline-tools/* latest/
+        rm -rf cmdline-tools tools.zip
 
-    - name: Verify sdkmanager
+    - name: Verify sdkmanager (must work)
       run: |
-        ls -la $ANDROID_HOME/cmdline-tools/latest/bin
-        $ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager --version
+        export PATH=$ANDROID_HOME/cmdline-tools/latest/bin:$PATH
+        sdkmanager --version
 
     - name: Install Android packages
       run: |
@@ -64,10 +65,11 @@ jobs:
           "ndk;25.2.9519653"
 
     - name: Build APK
-      run: buildozer android debug
+      run: |
+        buildozer android debug
 
     - name: Upload APK
       uses: actions/upload-artifact@v4
       with:
-        name: APK
+        name: MedicineTracker-APK
         path: bin/*.apk
