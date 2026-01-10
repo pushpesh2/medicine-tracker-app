@@ -16,12 +16,12 @@ jobs:
 
     steps:
     # --------------------------
-    # Install latest Git + system deps
+    # Install system dependencies (without sudo)
     # --------------------------
-    - name: Install Git and system dependencies
+    - name: Install system dependencies
       run: |
-        sudo apt update
-        sudo apt install -y \
+        apt-get update
+        apt-get install -y \
           git curl unzip tar openjdk-17-jdk zip \
           autoconf automake autoconf-archive m4 \
           libtool libtool-bin pkg-config \
@@ -34,7 +34,7 @@ jobs:
     - name: Checkout repository
       uses: actions/checkout@v4
       with:
-        fetch-depth: 0  # Full clone to avoid tar REST API fallback
+        fetch-depth: 0
 
     # --------------------------
     # Setup Python
@@ -54,7 +54,7 @@ jobs:
         pip install buildozer==1.5.0 cython
 
     # --------------------------
-    # Install Android SDK / NDK
+    # Install Android SDK
     # --------------------------
     - name: Install Android SDK
       run: |
@@ -65,17 +65,17 @@ jobs:
         mv cmdline-tools latest
 
     # --------------------------
-    # Fix legacy sdkmanager path for Buildozer
+    # Create legacy sdkmanager path for Buildozer
     # --------------------------
-    - name: Create legacy sdkmanager path for Buildozer
+    - name: Fix legacy sdkmanager path
       run: |
         mkdir -p $ANDROID_HOME/tools/bin
         ln -sf $ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager $ANDROID_HOME/tools/bin/sdkmanager
 
     # --------------------------
-    # Accept licenses + install packages
+    # Accept licenses + install SDK packages
     # --------------------------
-    - name: Install Android SDK packages
+    - name: Install Android packages
       run: |
         yes | $ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager --licenses
         $ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager \
