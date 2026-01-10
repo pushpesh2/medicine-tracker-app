@@ -13,7 +13,7 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Build APK (Docker – permission safe)
+      - name: Build APK (Docker / Buildozer)
         uses: addnab/docker-run-action@v3
         with:
           image: kivy/buildozer:latest
@@ -23,12 +23,10 @@ jobs:
           run: |
             set -e
 
-            # Create writable dirs INSIDE workspace
-            mkdir -p .buildozer_local
-            mkdir -p .build_cache
+            mkdir -p .buildozer_local .build_cache
 
-            # IMPORTANT: force buildozer dirs via flags
             buildozer \
+              --allow-root \
               --build-dir .build_cache \
               --user-data-dir .buildozer_local \
               android debug
