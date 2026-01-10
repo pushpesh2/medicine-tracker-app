@@ -1,35 +1,72 @@
-[app]
+name: Build Android APK
 
-title = Medicine Tracker
-package.name = medicinetracker
-package.domain = com.pushpesh
-version = 1.0.0
+on:
+  push:
+    branches: [ main ]
 
-source.dir = .
-source.main = main.py
+jobs:
+  build:
+    runs-on: ubuntu-24.04
 
-requirements = python3,kivy==2.3.1,Pillow,requests,python-dateutil
+    env:
+      ANDROID_HOME: $HOME/android-sdk
+      ANDROID_SDK_ROOT: $HOME/android-sdk
+      ANDROID_NDK_HOME: $HOME/android-sdk/ndk/25.2.9519653
+      PATH: $HOME/android-sdk/cmdline-tools/latest/bin:$HOME/android-sdk/platform-tools:$PATH
 
-# COMMENT icon/presplash UNTIL FILES EXIST
-# icon.filename = icon.png
-# presplash.filename = presplash.png
+    steps:
+    - name: Checkout
+      uses: actions/checkout@v4
 
-orientation = portrait
+    - name: Setup Python
+      uses: actions/setup-python@v5
+      with:
+        python-version: "3.10"
+        cache: pip
 
-android.api = 33
-android.minapi = 21
+    - name: Install system dependencies
+      run: |
+        sudo apt update
+        sudo apt install -y \
+          openjdk-17-jdk \
+          git zip unzip \
+          autoconf automake autoconf-archive m4 \
+          libtool libtool-bin \
+          pkg-config \
+          zlib1g-dev \
+          libffi-dev \
+          libssl-dev \
+          libncurses6 \
+          cmake
 
-# 🔒 STABLE NDK (CRITICAL)
-android.ndk = 25b
-android.ndk_api = 21
+    - name: Install Python tools
+      run: |
+        python -m pip install --upgrade pip
+        pip install buildozer==1.5.0 cython
 
-android.arch = armeabi-v7a, arm64-v8a
+    - name: Install Android SDK
+      run: |
+        mkdir -p $ANDROID_HOME/cmdline-tools
+        cd $ANDROID_HOME/cmdline-tools
+        wget https://dl.google.com/android/repository/commandlinetools-linux-11076708_latest.zip
+        unzip -q commandlinetools-linux-11076708_latest.zip
+        mv cmdline-tools latest
 
-android.permissions = INTERNET
+    - name: Install Android packages
+      run: |
+        yes | sdkmanager --licenses
+        sdkmanager \
+          "platform-tools" \
+          "platforms;android-33" \
+          "build-tools;33.0.2" \
+          "ndk;25.2.9519653"
 
-android.copy_libs = 1
-android.entrypoint = org.kivy.android.PythonActivity
+    - name: Cache Buildozer
+      uses: actions/cache@v4
+      with:
+        path: ~/.buildozer
+        key: buildozer-${{ runner.os }}
 
-p4a.bootstrap = sdl2
-
-log_level = 2
+    - name: Build APK
+      run: |
+        buildozer android debug
