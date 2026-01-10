@@ -1,4 +1,4 @@
-name: Build Android APK (Buildozer)
+name: Android APK Build (Buildozer Docker)
 
 on:
   push:
@@ -10,49 +10,26 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      - name: Checkout repository
+      - name: Checkout code
         uses: actions/checkout@v4
 
-      # ---------------- CACHE ----------------
-      - name: Cache Buildozer & Gradle
-        uses: actions/cache@v4
-        with:
-          path: |
-            .buildozer
-            .build_cache
-            ~/.gradle
-          key: buildozer-${{ runner.os }}-${{ hashFiles('buildozer.spec') }}
-          restore-keys: |
-            buildozer-${{ runner.os }}-
+      - name: Create build directories
+        run: |
+          mkdir -p .buildozer .build_cache
 
-      # ---------------- BUILD ----------------
-      - name: Build APK using Buildozer
-        uses: addnab/docker-run-action@v3
-        with:
-          image: kivy/buildozer:latest
-          options: |
-            -v ${{ github.workspace }}:/workspace
-            -w /workspace
-          run: |
-            set -e
+      - name: Build APK using Dockerized Buildozer
+        run: |
+          docker run --rm \
+            -v ${{ github.workspace }}:/workspace \
+            -w /workspace \
+            kivy/buildozer:latest \
+            bash -c "
+              sed -i 's/^android.arch = .*/android.archs = arm64-v8a,armeabi-v7a/' buildozer.spec || true
+              buildozer android debug --allow-root
+            "
 
-            # ---- HARD FIXES ----
-            export BUILDOZER_ALLOW_ROOT=1
-            export BUILDOZER_BUILD_DIR=/workspace/.build_cache
-            export BUILDOZER_USER_DATA_DIR=/workspace/.buildozer
-
-            mkdir -p .build_cache .buildozer
-
-            # ---- REQUIRED MIGRATION ----
-            sed -i 's/^android.arch = .*/android.archs = arm64-v8a,armeabi-v7a/' buildozer.spec || true
-
-            # ---- BUILD ----
-            buildozer android debug
-
-      # ---------------- UPLOAD ----------------
       - name: Upload APK
         uses: actions/upload-artifact@v4
         with:
-          name: MedicineTracker-APK
+          name: android-apk
           path: bin/*.apk
-          if-no-files-found: error
