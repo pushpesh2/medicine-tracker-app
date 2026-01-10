@@ -10,10 +10,17 @@ jobs:
     runs-on: ubuntu-22.04
 
     steps:
-    - name: Checkout
+    - name: Checkout repo
       uses: actions/checkout@v4
 
-    - name: Setup Python
+    # ✅ FIX 1: FORCE JAVA 17
+    - name: Setup Java 17
+      uses: actions/setup-java@v4
+      with:
+        distribution: temurin
+        java-version: 17
+
+    - name: Setup Python 3.10
       uses: actions/setup-python@v5
       with:
         python-version: "3.10"
@@ -22,17 +29,20 @@ jobs:
       run: |
         sudo apt update
         sudo apt install -y \
-          openjdk-17-jdk unzip zip git \
+          git zip unzip \
           autoconf automake libtool \
           pkg-config libffi-dev libssl-dev zlib1g-dev cmake
 
-    # ✅ OFFICIAL ANDROID SDK SETUP (NO sdkmanager ERRORS)
+    # ✅ FIX 2: CORRECT android action usage
     - name: Setup Android SDK
       uses: android-actions/setup-android@v3
       with:
-        api-level: 33
-        build-tools: 33.0.2
-        ndk: 25.2.9519653
+        accept-android-sdk-licenses: true
+        packages: |
+          platform-tools
+          platforms;android-33
+          build-tools;33.0.2
+          ndk;25.2.9519653
 
     - name: Install Buildozer
       run: |
@@ -43,6 +53,7 @@ jobs:
       run: |
         buildozer android debug
 
+    # ✅ AUTO UPLOAD APK
     - name: Upload APK
       uses: actions/upload-artifact@v4
       with:
