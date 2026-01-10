@@ -1,8 +1,8 @@
-name: Android APK (FINAL FIX)
+name: Build Android APK
 
 on:
   push:
-    branches: [ "main" ]
+    branches: ["main"]
   workflow_dispatch:
 
 jobs:
@@ -13,27 +13,26 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
-      # HARD NUKE host junk
-      - name: Clean workspace
+      # 🔥 Ensure no local buildozer
+      - name: Remove local venv & old builds
         run: |
-          rm -rf .venv .buildozer bin dist __pycache__
+          rm -rf .venv
+          rm -rf .buildozer
+          rm -rf bin
+          rm -rf dist
 
-      - name: Build APK (non-root Docker)
+      - name: Build APK inside Docker
         run: |
           docker run --rm \
-            --user 1000:1000 \
+            -e BUILDOZER_ALLOW_ROOT=1 \
             -v "${{ github.workspace }}:/workspace" \
             -w /workspace \
             kivy/buildozer:latest \
-            bash -c "
-              export HOME=/home/user &&
-              rm -rf .venv .buildozer &&
-              which buildozer &&
-              buildozer android debug
-            "
+            bash -c "buildozer android debug"
 
       - name: Upload APK
         uses: actions/upload-artifact@v4
         with:
           name: MedicineTracker-APK
           path: bin/*.apk
+          if-no-files-found: error
