@@ -10,52 +10,32 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      - name: Checkout code
+      - name: Checkout repository
         uses: actions/checkout@v4
 
-      # Calculate hash for caching
-      - name: Calculate source hash
-        id: hash
-        run: |
-          echo "HASH=$(find . -type f \( -name '*.py' -o -name '*.kv' -o -name '*.spec' -o -name '*.png' \) -print0 | sort -z | xargs -0 sha256sum | sha256sum | cut -d' ' -f1)" >> $GITHUB_OUTPUT
-
-      # Restore buildozer cache
-      - name: Restore Buildozer Cache
-        uses: actions/cache@v4
-        with:
-          path: .buildozer
-          key: buildozer-${{ steps.hash.outputs.HASH }}
-          restore-keys: |
-            buildozer-
-
-      # Only build if needed
-      - name: Check if build needed
-        id: check
-        run: |
-          if [ -d ".buildozer" ] && [ -f ".buildozer/build_complete" ]; then
-            echo "BUILD_NEEDED=false" >> $GITHUB_OUTPUT
-          else
-            echo "BUILD_NEEDED=true" >> $GITHUB_OUTPUT
-          fi
-
-      # Build APK in Docker (non-interactive, allows root)
-      - name: Build APK
-        if: steps.check.outputs.BUILD_NEEDED == 'true'
+      - name: Set up Docker Buildozer environment
         uses: addnab/docker-run-action@v3
         with:
           image: kivy/buildozer:latest
           options: --workdir /app -v ${{ github.workspace }}:/app
           run: |
+            # Avoid root prompt and non-interactive
             export BUILD_NO_INTERACTIVE=1
-            export BUILD_USER=root
-            buildozer android debug
+            export HOME=/app
+            # Ensure directories exist
+            mkdir -p /app/.buildozer
             mkdir -p /app/dist
-            cp bin/*/*.apk /app/dist/
-            touch .buildozer/build_complete
+            # Install/update pip dependencies (if needed)
+            pip install --upgrade cython pillow requests python-dateutil
+            # Clean old builds
+            buildozer android clean
+            # Build APK
+            buildozer -v android debug deploy run
+            # Copy APK to workspace
+            cp ./.buildozer/android/platform/build-arm64-v8a/dists/medicinetracker/bin/*.apk /app/dist/ || true
+            cp ./.buildozer/android/platform/build-armeabi-v7a/dists/medicinetracker/bin/*.apk /app/dist/ || true
 
-      # Upload APK artifact
-      - name: Upload APK
-        if: steps.check.outputs.BUILD_NEEDED == 'true'
+      - name: Upload APK artifact
         uses: actions/upload-artifact@v4
         with:
           name: MedicineTracker-APK
