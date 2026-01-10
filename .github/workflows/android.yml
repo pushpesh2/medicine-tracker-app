@@ -1,4 +1,4 @@
-name: Android APK Build
+name: Build Android APK (Buildozer)
 
 on:
   push:
@@ -10,20 +10,53 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
+      # -------------------------------
+      # 1️⃣ Checkout
+      # -------------------------------
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      - name: Build APK with Buildozer (NO PROMPT, NO FAIL)
+      # -------------------------------
+      # 2️⃣ HARD CLEAN (MANDATORY)
+      # -------------------------------
+      - name: Clean old build files
+        run: |
+          sudo rm -rf .venv
+          sudo rm -rf .buildozer
+          sudo rm -rf bin
+          sudo rm -rf ~/.buildozer
+          sudo rm -rf ~/.cache/buildozer
+          sudo rm -rf ~/.cache/pip
+
+      # -------------------------------
+      # 3️⃣ Cache Buildozer (FAST)
+      # -------------------------------
+      - name: Cache Buildozer
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.buildozer
+            ~/.cache/pip
+          key: buildozer-${{ runner.os }}-${{ hashFiles('buildozer.spec') }}
+
+      # -------------------------------
+      # 4️⃣ Build APK (NO ROOT PROMPT)
+      # -------------------------------
+      - name: Build APK using Docker
         run: |
           docker run --rm \
-            -e BUILDOZER_ALLOW_ROOT=1 \
-            -v "${{ github.workspace }}:/workspace" \
-            -w /workspace \
-            kivy/buildozer:latest \
+            -u $(id -u):$(id -g) \
+            -v "$PWD:/app" \
+            -v "$HOME/.buildozer:/home/user/.buildozer" \
+            kivy/buildozer \
             buildozer android debug
 
+      # -------------------------------
+      # 5️⃣ Upload APK
+      # -------------------------------
       - name: Upload APK
         uses: actions/upload-artifact@v4
         with:
           name: MedicineTracker-APK
           path: bin/*.apk
+          if-no-files-found: error
