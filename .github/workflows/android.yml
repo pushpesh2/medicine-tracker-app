@@ -30,7 +30,7 @@ jobs:
     # Build APK using Buildozer Docker
     # -------------------------------
     - name: Build APK using Buildozer Docker
-      uses: addnab/docker-run-action@v4
+      uses: addnab/docker-run-action@v3
       with:
         image: kivy/buildozer:latest
         options: --workdir /app -v ${{ github.workspace }}:/app
@@ -51,8 +51,7 @@ jobs:
     # Upload APK as artifact
     # -------------------------------
     - name: Upload debug APK
-      uses: actions/upload-artifact@v3
+      uses: actions/upload-artifact@v4
       with:
         name: medicinetracker-debug-apk
-        path: |
-          ./.buildozer/android/platform/build/dists/medicinetracker/bin/*.apk
+        path: ./.buildozer/android/platform/build/dists/medicinetracker/bin/*.apk
