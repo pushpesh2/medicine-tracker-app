@@ -17,6 +17,8 @@ jobs:
     steps:
     - name: Checkout repository
       uses: actions/checkout@v4
+      with:
+        fetch-depth: 0
 
     - name: Setup Python
       uses: actions/setup-python@v5
@@ -28,7 +30,7 @@ jobs:
       run: |
         apt-get update
         apt-get install -y \
-          git curl unzip tar openjdk-17-jdk zip \
+          git curl unzip openjdk-17-jdk zip \
           autoconf automake autoconf-archive m4 \
           libtool libtool-bin pkg-config \
           zlib1g-dev libffi-dev libssl-dev \
@@ -61,6 +63,13 @@ jobs:
       with:
         path: ~/.buildozer
         key: buildozer-${{ runner.os }}-${{ hashFiles('**/buildozer.spec') }}
+
+    - name: Patch SDL2 for Android NDK r27+
+      run: |
+        SDL_PATH="$HOME/.buildozer/android/platform/build-armeabi-v7a_arm64-v8a/build/bootstrap_builds/sdl2/jni/SDL"
+        if [ -f "$SDL_PATH/src/sensor/android/SDL_androidsensor.c" ]; then
+          sed -i 's/ALooper_pollAll(0, NULL, &events, (void **)&source)/ALooper_pollOnce(0, NULL, &events, (void **)&source)/g' "$SDL_PATH/src/sensor/android/SDL_androidsensor.c"
+        fi
 
     - name: Build APK
       run: |
