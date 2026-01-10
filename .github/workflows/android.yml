@@ -3,85 +3,76 @@ name: Build Android APK
 on:
   push:
     branches: [ main ]
+  workflow_dispatch:
 
 jobs:
   build:
     runs-on: ubuntu-24.04
 
     env:
-      ANDROID_HOME: $HOME/.buildozer/android/platform/android-sdk
-      ANDROID_SDK_ROOT: $HOME/.buildozer/android/platform/android-sdk
-      ANDROID_NDK_HOME: $HOME/.buildozer/android/platform/android-sdk/ndk/25.2.9519653
+      ANDROID_HOME: $HOME/android-sdk
+      ANDROID_SDK_ROOT: $HOME/android-sdk
 
     steps:
-    # -------------------------
+    # -------------------------------------------------
     # Checkout
-    # -------------------------
+    # -------------------------------------------------
     - name: Checkout repository
       uses: actions/checkout@v4
 
-    # -------------------------
-    # Python (SAFE VERSION)
-    # -------------------------
+    # -------------------------------------------------
+    # Python (Buildozer DOES NOT support Python 3.12)
+    # -------------------------------------------------
     - name: Setup Python 3.10
       uses: actions/setup-python@v5
       with:
         python-version: "3.10"
-        cache: pip
 
-    # -------------------------
-    # System dependencies
-    # -------------------------
+    # -------------------------------------------------
+    # System dependencies (tested on 24.04)
+    # -------------------------------------------------
     - name: Install system dependencies
       run: |
         sudo apt update
         sudo apt install -y \
           openjdk-17-jdk \
-          git zip unzip wget curl \
-          autoconf automake autoconf-archive m4 \
-          libtool libtool-bin \
-          pkg-config \
-          zlib1g-dev \
-          libffi-dev \
-          libssl-dev \
+          git zip unzip \
+          autoconf automake libtool pkg-config \
+          zlib1g-dev libffi-dev libssl-dev \
           libncurses6 \
           cmake
 
-    # -------------------------
+    # -------------------------------------------------
     # Python tools
-    # -------------------------
-    - name: Install Python tools
+    # -------------------------------------------------
+    - name: Install Buildozer + Cython
       run: |
         python -m pip install --upgrade pip
         pip install buildozer==1.5.0 cython
 
-    # -------------------------
-    # Android SDK
-    # -------------------------
+    # -------------------------------------------------
+    # Android SDK (FIXED STRUCTURE)
+    # -------------------------------------------------
     - name: Install Android command line tools
       run: |
         mkdir -p $ANDROID_HOME/cmdline-tools
         cd $ANDROID_HOME/cmdline-tools
+
         wget https://dl.google.com/android/repository/commandlinetools-linux-11076708_latest.zip -O tools.zip
         unzip -q tools.zip
+
+        # 🔥 CRITICAL FIX (nested folder issue)
         mv cmdline-tools latest
+
         rm tools.zip
         chmod +x $ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager
 
-    # -------------------------
-    # Buildozer legacy path fix
-    # -------------------------
-    - name: Create legacy sdkmanager path
-      run: |
-        mkdir -p $ANDROID_HOME/tools/bin
-        ln -sf $ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager \
-              $ANDROID_HOME/tools/bin/sdkmanager
-
-    # -------------------------
-    # Install SDK packages
-    # -------------------------
+    # -------------------------------------------------
+    # Android packages
+    # -------------------------------------------------
     - name: Install Android SDK packages
       run: |
+        export PATH=$ANDROID_HOME/cmdline-tools/latest/bin:$ANDROID_HOME/platform-tools:$PATH
         yes | sdkmanager --licenses
         sdkmanager \
           "platform-tools" \
@@ -89,26 +80,17 @@ jobs:
           "build-tools;33.0.2" \
           "ndk;25.2.9519653"
 
-    # -------------------------
-    # Cache Buildozer
-    # -------------------------
-    - name: Cache Buildozer
-      uses: actions/cache@v4
-      with:
-        path: |
-          ~/.buildozer
-        key: buildozer-${{ runner.os }}
-
-    # -------------------------
-    # Build APK (NON-INTERACTIVE)
-    # -------------------------
+    # -------------------------------------------------
+    # Build APK (NON-INTERACTIVE ROOT FIX)
+    # -------------------------------------------------
     - name: Build APK
       run: |
-        buildozer android debug
+        export PATH=$ANDROID_HOME/cmdline-tools/latest/bin:$ANDROID_HOME/platform-tools:$PATH
+        buildozer -v android debug --no-interaction
 
-    # -------------------------
-    # Upload APK (FINAL STEP)
-    # -------------------------
+    # -------------------------------------------------
+    # Upload APK
+    # -------------------------------------------------
     - name: Upload APK artifact
       uses: actions/upload-artifact@v4
       with:
