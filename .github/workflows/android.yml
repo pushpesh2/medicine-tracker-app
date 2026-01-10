@@ -33,12 +33,16 @@ jobs:
           autoconf automake libtool \
           pkg-config libffi-dev libssl-dev zlib1g-dev cmake
 
-    # ✅ FIXED PACKAGE SYNTAX
+    # ✅ THIS IS THE CRITICAL FIX
     - name: Setup Android SDK
       uses: android-actions/setup-android@v3
       with:
         accept-android-sdk-licenses: true
-        packages: "platform-tools,platforms;android-33,build-tools;33.0.2,ndk;25.2.9519653"
+        packages: |
+          platform-tools
+          platforms;android-33
+          build-tools;33.0.2
+          ndk;25.2.9519653
 
     - name: Install Buildozer
       run: |
