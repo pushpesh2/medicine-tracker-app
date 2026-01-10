@@ -10,42 +10,42 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      - name: Checkout repository
+      - name: Checkout
         uses: actions/checkout@v4
 
-      # Cache Buildozer & pip for faster builds
-      - name: Cache Buildozer & pip
-        uses: actions/cache@v4
-        with:
-          path: |
-            ~/.buildozer
-            ~/.cache/pip
-          key: buildozer-cache-${{ runner.os }}-${{ hashFiles('**/requirements.txt') }}
-
-      # Build APK inside Docker
-      - name: Build APK using Buildozer Docker
+      - name: Build APK (Docker – permission safe)
         uses: addnab/docker-run-action@v3
         with:
           image: kivy/buildozer:latest
-          options: --user 1000:1000 -v ${{ github.workspace }}:/app -w /app
+          options: |
+            --user 1000:1000
+            -v ${{ github.workspace }}:/workspace
+            -w /workspace
           run: |
-            # Force Buildozer to use a writable directory
-            export BUILD_DIR=/home/user/.buildozer
-            mkdir -p $BUILD_DIR
+            set -e
 
-            # Non-interactive mode to skip root warnings
+            # FORCE writable locations
+            export HOME=/tmp
+            export BUILDOZER_HOME=/tmp/.buildozer
+            export ANDROID_HOME=/tmp/android-sdk
+            export ANDROID_SDK_ROOT=/tmp/android-sdk
+            export ANDROID_NDK_HOME=/tmp/android-ndk
             export BUILD_NO_INTERACTIVE=1
 
-            # Clean old builds (optional)
-            buildozer android clean || true
+            mkdir -p /tmp/.buildozer
+            mkdir -p /tmp/android-sdk
+            mkdir -p /tmp/android-ndk
 
-            # Build the APK
+            # Sanity check
+            echo "Using BUILDOZER_HOME=$BUILDOZER_HOME"
+            echo "Using HOME=$HOME"
+
+            # Build
             buildozer android debug
 
-      # Upload APK
-      - name: Upload APK artifact
+      - name: Upload APK
         uses: actions/upload-artifact@v4
         with:
           name: MedicineTracker-APK
           path: bin/*.apk
-          if-no-files-found: warn
+          if-no-files-found: error
