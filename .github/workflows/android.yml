@@ -18,30 +18,20 @@ jobs:
         with:
           image: kivy/buildozer:latest
           options: |
-            --user 1000:1000
             -v ${{ github.workspace }}:/workspace
             -w /workspace
           run: |
             set -e
 
-            # FORCE writable locations
-            export HOME=/tmp
-            export BUILDOZER_HOME=/tmp/.buildozer
-            export ANDROID_HOME=/tmp/android-sdk
-            export ANDROID_SDK_ROOT=/tmp/android-sdk
-            export ANDROID_NDK_HOME=/tmp/android-ndk
-            export BUILD_NO_INTERACTIVE=1
+            # Create writable dirs INSIDE workspace
+            mkdir -p .buildozer_local
+            mkdir -p .build_cache
 
-            mkdir -p /tmp/.buildozer
-            mkdir -p /tmp/android-sdk
-            mkdir -p /tmp/android-ndk
-
-            # Sanity check
-            echo "Using BUILDOZER_HOME=$BUILDOZER_HOME"
-            echo "Using HOME=$HOME"
-
-            # Build
-            buildozer android debug
+            # IMPORTANT: force buildozer dirs via flags
+            buildozer \
+              --build-dir .build_cache \
+              --user-data-dir .buildozer_local \
+              android debug
 
       - name: Upload APK
         uses: actions/upload-artifact@v4
