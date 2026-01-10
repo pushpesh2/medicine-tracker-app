@@ -3,46 +3,59 @@ name: Build Android APK
 on:
   push:
     branches: [ main ]
+  workflow_dispatch:
 
 jobs:
   build:
     runs-on: ubuntu-latest
 
     steps:
-    - name: Checkout Repository
-      uses: actions/checkout@v4
+      # Checkout repo
+      - name: Checkout
+        uses: actions/checkout@v4
 
-    - name: Build APK using Buildozer Docker
-      uses: addnab/docker-run-action@v3
-      with:
-        image: kivy/buildozer:latest
-        options: --workdir /app -v ${{ github.workspace }}:/app
-        run: |
-          set -e
+      # Setup Python cache (for Buildozer dependencies)
+      - name: Cache Python packages
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/pip
+          key: python-pip-${{ runner.os }}-${{ hashFiles('**/requirements.txt') }}
+          restore-keys: |
+            python-pip-${{ runner.os }}-
 
-          # Force non-interactive mode (CI safe)
-          export BUILD_USER=root
-          export BUILD_NO_INTERACTIVE=1
+      # Build APK inside Docker
+      - name: Build APK using Buildozer Docker
+        uses: addnab/docker-run-action@v3
+        with:
+          image: kivy/buildozer:latest
+          options: --workdir /app -v ${{ github.workspace }}:/app
+          run: |
+            set -e
 
-          # Show Python/Buildozer versions
-          python --version
-          buildozer --version
+            # Fix root warning & non-interactive mode
+            export BUILD_USER=root
+            export BUILD_NO_INTERACTIVE=1
 
-          # Ensure .buildozer folder exists
-          mkdir -p /app/.buildozer
+            # Verify environment
+            python --version
+            buildozer --version
 
-          # Clean previous builds (optional)
-          buildozer android clean
+            # Ensure cache directory exists
+            mkdir -p /app/.buildozer
 
-          # Build the APK (debug)
-          buildozer android debug
+            # Clean old build if needed
+            buildozer android clean
 
-          # Optional: move the APK to workspace for upload
-          mkdir -p /app/dist
-          cp bin/*/*.apk /app/dist/
-    
-    - name: Upload APK
-      uses: actions/upload-artifact@v4
-      with:
-        name: medicinetracker-apk
-        path: dist/
+            # Build the APK
+            buildozer android debug
+
+            # Copy APK to dist/ for GitHub Actions artifact
+            mkdir -p /app/dist
+            cp bin/*/*.apk /app/dist/
+
+      # Upload the APK as artifact
+      - name: Upload APK
+        uses: actions/upload-artifact@v3
+        with:
+          name: MedicineTracker-APK
+          path: dist/*.apk
