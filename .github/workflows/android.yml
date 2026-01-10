@@ -2,7 +2,7 @@ name: Build Android APK
 
 on:
   push:
-    branches: [ "main" ]
+    branches: ["main"]
   workflow_dispatch:
 
 jobs:
@@ -10,12 +10,12 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      # 1️⃣ Checkout
+      # Step 1: Checkout
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      # 2️⃣ Run Buildozer ONLY inside Docker
-      - name: Build APK using Docker
+      # Step 2: Build APK inside Docker
+      - name: Build APK using Dockerized Buildozer
         run: |
           docker run --rm \
             -e BUILDOZER_ALLOW_ROOT=1 \
@@ -24,7 +24,7 @@ jobs:
             kivy/buildozer:latest \
             buildozer android debug
 
-      # 3️⃣ Upload APK
+      # Step 3: Upload built APK
       - name: Upload APK
         uses: actions/upload-artifact@v4
         with:
