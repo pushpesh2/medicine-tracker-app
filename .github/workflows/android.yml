@@ -11,39 +11,45 @@ jobs:
     env:
       ANDROID_HOME: $HOME/android-sdk
       ANDROID_SDK_ROOT: $HOME/android-sdk
-      ANDROID_NDK_HOME: $HOME/android-sdk/ndk/25b
+      ANDROID_NDK_HOME: $HOME/android-sdk/ndk/25.2.9519653
       PATH: $HOME/android-sdk/cmdline-tools/latest/bin:$HOME/android-sdk/platform-tools:$PATH
 
     steps:
-    - name: Checkout repository
+    - name: Checkout repo
       uses: actions/checkout@v4
 
     - name: Install system dependencies
       run: |
         sudo apt update
-        sudo apt install -y openjdk-17-jdk git zip unzip libncurses6 cmake
+        sudo apt install -y \
+          openjdk-17-jdk git zip unzip tar \
+          autoconf automake autoconf-archive m4 \
+          libtool libtool-bin pkg-config \
+          zlib1g-dev libffi-dev libssl-dev \
+          libncurses6 cmake python3-venv python3-pip
 
-    - name: Install Python tools
+    - name: Setup Python
       run: |
         python3 -m pip install --upgrade pip
-        pip install buildozer==1.5.0 cython==0.29.36
+        pip install buildozer==1.5.0 cython==0.29.39
 
-    - name: Download Android SDK command line tools
+    - name: Install Android SDK cmdline-tools
       run: |
         mkdir -p $ANDROID_HOME/cmdline-tools
         cd $ANDROID_HOME/cmdline-tools
         wget https://dl.google.com/android/repository/commandlinetools-linux-12266719_latest.zip -O tools.zip
         unzip -q tools.zip
         mv cmdline-tools latest
+        rm tools.zip
 
-    - name: Accept SDK licenses and install packages
+    - name: Accept Android SDK licenses & install packages
       run: |
-        yes | $ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager --sdk_root=$ANDROID_HOME --licenses
+        yes | $ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager --licenses
         $ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager \
           "platform-tools" \
           "platforms;android-33" \
           "build-tools;33.0.2" \
-          "ndk;25b"
+          "ndk;25.2.9519653"
 
     - name: Build APK with Buildozer
       run: |
@@ -52,5 +58,5 @@ jobs:
     - name: Upload APK
       uses: actions/upload-artifact@v4
       with:
-        name: apk
+        name: APK
         path: bin/*.apk
