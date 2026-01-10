@@ -10,32 +10,35 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      - name: Checkout
+      - name: Checkout repo
         uses: actions/checkout@v4
 
-      - name: Cache Buildozer
-        uses: actions/cache@v4
-        with:
-          path: |
-            ~/.buildozer
-            ~/.pydist
-            ~/.cache/pip
-          key: buildozer-cache-${{ runner.os }}-${{ hashFiles('**/requirements.txt') }}
-
-      - name: Build APK inside Docker as non-root
+      # Use Docker-based Buildozer image
+      - name: Build APK in Docker (non-root)
         uses: addnab/docker-run-action@v3
         with:
           image: kivy/buildozer:latest
           options: --user 1000:1000 -v ${{ github.workspace }}:/app -w /app
           run: |
+            # Upgrade pip inside Docker
             python -m pip install --upgrade pip
+            
+            # Optional: Install dependencies if needed
             pip install -r requirements.txt || true
+
+            # Clean old builds
             buildozer android clean || true
+
+            # Force non-interactive build (avoids root check)
+            export BUILD_NO_INTERACTIVE=1
+
+            # Build APK
             buildozer -v android debug
 
-      - name: Upload APK artifact
+      # Upload APK artifact
+      - name: Upload APK
         uses: actions/upload-artifact@v4
         with:
           name: MedicineTracker-APK
-          path: dist/*.apk
+          path: bin/*.apk
           if-no-files-found: warn
