@@ -11,7 +11,6 @@ jobs:
     env:
       ANDROID_HOME: $HOME/.buildozer/android/platform/android-sdk
       ANDROID_SDK_ROOT: $HOME/.buildozer/android/platform/android-sdk
-      PATH: $HOME/.buildozer/android/platform/android-sdk/cmdline-tools/latest/bin:$HOME/.buildozer/android/platform/android-sdk/platform-tools:$PATH
 
     steps:
       - name: Checkout
@@ -21,35 +20,28 @@ jobs:
         uses: actions/setup-python@v5
         with:
           python-version: "3.10"
-          cache: pip
 
       - name: Install system dependencies
         run: |
           sudo apt update
           sudo apt install -y \
-            tar coreutils \
+            tar \
+            git \
+            unzip \
+            zip \
             openjdk-17-jdk \
-            git zip unzip \
             autoconf automake autoconf-archive m4 \
             libtool libtool-bin \
             pkg-config \
             zlib1g-dev \
             libffi-dev \
             libssl-dev \
-            libncurses6 \
             cmake
 
       - name: Install Python tools
         run: |
           python -m pip install --upgrade pip
           pip install buildozer==1.5.0 cython
-
-      - name: Cache Buildozer & Android
-        uses: actions/cache@v4
-        with:
-          path: |
-            ~/.buildozer
-          key: buildozer-${{ runner.os }}-${{ hashFiles('buildozer.spec') }}
 
       - name: Install Android SDK cmdline-tools
         run: |
@@ -59,15 +51,19 @@ jobs:
           unzip -q commandlinetools-linux-11076708_latest.zip
           mv cmdline-tools latest
 
-      # 🔥 THIS IS THE MOST IMPORTANT STEP FOR BUILDOZER
-      - name: Create legacy sdkmanager path for Buildozer
+      - name: Fix PATH for sdkmanager (safe way)
+        run: |
+          echo "$ANDROID_HOME/cmdline-tools/latest/bin" >> $GITHUB_PATH
+          echo "$ANDROID_HOME/platform-tools" >> $GITHUB_PATH
+
+      - name: Create legacy sdkmanager path (Buildozer needs this)
         run: |
           mkdir -p $ANDROID_HOME/tools/bin
           ln -sf \
             $ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager \
             $ANDROID_HOME/tools/bin/sdkmanager
 
-      - name: Accept licenses & install SDK packages
+      - name: Install Android packages
         run: |
           yes | sdkmanager --licenses
           sdkmanager \
