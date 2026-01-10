@@ -23,7 +23,7 @@ android.ndk = 25b
 android.ndk_api = 21
 
 android.accept_sdk_license = True
-android.skip_update = True
+android.skip_update = False
 
 android.permissions = INTERNET
 
