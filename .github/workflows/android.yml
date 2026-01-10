@@ -6,13 +6,7 @@ on:
 
 jobs:
   build:
-    runs-on: ubuntu-24.04
-
-    env:
-      ANDROID_HOME: $HOME/.buildozer/android/platform/android-sdk
-      ANDROID_SDK_ROOT: $HOME/.buildozer/android/platform/android-sdk
-      ANDROID_NDK_HOME: $HOME/.buildozer/android/platform/android-ndk-r25b
-      PATH: $HOME/.buildozer/android/platform/android-sdk/cmdline-tools/latest/bin:$HOME/.buildozer/android/platform/android-sdk/platform-tools:$PATH:$HOME/.local/bin
+    runs-on: ubuntu-latest
 
     steps:
     - name: Checkout repository
@@ -21,55 +15,46 @@ jobs:
         fetch-depth: 0
         submodules: recursive
 
-    - name: Setup Python 3.10
-      uses: actions/setup-python@v5
+    - name: Build APK in Docker
+      uses: addnab/docker-run-action@v4
       with:
-        python-version: 3.10
-        cache: pip
+        image: python:3.10-slim
+        options: --workdir /app -v ${{ github.workspace }}:/app
+        run: |
+          set -e
 
-    - name: Install Python tools
-      run: |
-        python -m pip install --upgrade pip
-        pip install --user buildozer==1.5.0 cython
+          # Install system dependencies
+          apt-get update
+          apt-get install -y \
+            git curl unzip zip openjdk-17-jdk autoconf automake \
+            autoconf-archive m4 libtool libtool-bin pkg-config \
+            zlib1g-dev libffi-dev libssl-dev libncurses6 cmake wget
 
-    - name: Install required system tools in user-space
-      run: |
-        mkdir -p $HOME/bin
-        export PATH=$HOME/bin:$PATH
-        # Install wget, unzip, tar
-        curl -L https://ftp.gnu.org/gnu/tar/tar-latest.tar.gz -o tar.tar.gz
-        mkdir tar_src && tar -xzf tar.tar.gz -C tar_src --strip-components=1
-        cd tar_src && ./configure --prefix=$HOME && make -j$(nproc) && make install
-        cd ..
-        curl -L https://downloads.sourceforge.net/infozip/unzip60.tar.gz -o unzip.tar.gz
-        mkdir unzip_src && tar -xzf unzip.tar.gz -C unzip_src --strip-components=1
-        cd unzip_src && make -f unix/Makefile generic && cp unzip $HOME/bin
-        curl -LO https://mirrors.edge.kernel.org/pub/software/scm/git/git-2.42.0.tar.gz
-        tar -xzf git-2.42.0.tar.gz
-        cd git-2.42.0 && make prefix=$HOME all && make prefix=$HOME install
-        export PATH=$HOME/bin:$PATH
+          # Install Buildozer and Cython
+          pip install --upgrade pip
+          pip install buildozer==1.5.0 cython
 
-    - name: Install Android SDK
-      run: |
-        mkdir -p $ANDROID_HOME/cmdline-tools
-        cd $ANDROID_HOME/cmdline-tools
-        curl -LO https://dl.google.com/android/repository/commandlinetools-linux-11076708_latest.zip
-        unzip -q commandlinetools-linux-11076708_latest.zip
-        mv cmdline-tools latest
-        yes | $ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager --licenses
-        $ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager \
-          "platform-tools" \
-          "platforms;android-33" \
-          "build-tools;33.0.2" \
-          "ndk;25.2.9519653"
+          # Setup Android SDK directories
+          export ANDROID_HOME=/app/.buildozer/android/platform/android-sdk
+          export ANDROID_SDK_ROOT=$ANDROID_HOME
+          export ANDROID_NDK_HOME=/app/.buildozer/android/platform/android-ndk-r25b
+          export PATH=$ANDROID_HOME/cmdline-tools/latest/bin:$ANDROID_HOME/platform-tools:$PATH
 
-    - name: Cache Buildozer
-      uses: actions/cache@v4
-      with:
-        path: ~/.buildozer
-        key: buildozer-${{ runner.os }}-${{ hashFiles('**/buildozer.spec') }}
+          mkdir -p $ANDROID_HOME/cmdline-tools
+          cd $ANDROID_HOME/cmdline-tools
 
-    - name: Build APK
-      run: |
-        export PATH=$HOME/.local/bin:$PATH
-        buildozer android debug
+          # Download Android command line tools
+          wget -q https://dl.google.com/android/repository/commandlinetools-linux-11076708_latest.zip -O cmdline-tools.zip
+          unzip -q cmdline-tools.zip
+          mv cmdline-tools latest
+
+          # Accept licenses & install SDK packages
+          yes | $ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager --licenses
+          $ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager \
+            "platform-tools" \
+            "platforms;android-33" \
+            "build-tools;33.0.2" \
+            "ndk;25.2.9519653"
+
+          # Build APK
+          buildozer android debug
