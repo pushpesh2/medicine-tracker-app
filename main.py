@@ -1,70 +1,93 @@
 from kivy.app import App
 from kivy.uix.boxlayout import BoxLayout
+from kivy.uix.button import Button
 from kivy.uix.label import Label
 from kivy.uix.textinput import TextInput
-from kivy.uix.button import Button
-from kivy.uix.checkbox import CheckBox
-from kivy.uix.scrollview import ScrollView
-from kivy.uix.gridlayout import GridLayout
+from kivy.uix.recycleview import RecycleView
+from kivy.properties import StringProperty, ListProperty
+from kivy.storage.jsonstore import JsonStore
+from datetime import datetime
+import os
 
-class MedicineTracker(BoxLayout):
+# This saves your data on the phone so it doesn't disappear
+store = JsonStore('health_tracker.json')
+
+class MedicineEntry(BoxLayout):
+    """The UI for each medicine row in the list"""
+    text = StringProperty('')
+
+class TrackerHome(BoxLayout):
     def __init__(self, **kwargs):
-        super().__init__(orientation='vertical', **kwargs)
+        super().__init__(orientation='vertical', padding=10, spacing=10, **kwargs)
+        
+        # Header
+        self.add_widget(Label(text="Health Tracker", font_size='24sp', size_hint_y=None, height=50))
 
-        self.medicine_input = TextInput(
-            hint_text="Medicine name",
-            size_hint_y=None,
-            height=50
-        )
-        self.add_widget(self.medicine_input)
+        # Input Area
+        input_area = BoxLayout(orientation='vertical', size_hint_y=None, height=150, spacing=5)
+        self.med_name = TextInput(hint_text="Medicine Name...", multiline=False)
+        
+        btn_layout = BoxLayout(spacing=10)
+        add_med_btn = Button(text="Add Med", background_color=(0.2, 0.7, 0.3, 1))
+        add_med_btn.bind(on_press=self.add_medicine)
+        
+        add_water_btn = Button(text="Log Water (250ml)", background_color=(0.2, 0.5, 0.9, 1))
+        add_water_btn.bind(on_press=self.log_water)
+        
+        btn_layout.add_widget(add_med_btn)
+        btn_layout.add_widget(add_water_btn)
+        
+        input_area.add_widget(self.med_name)
+        input_area.add_widget(btn_layout)
+        self.add_widget(input_area)
 
-        dose_box = BoxLayout(size_hint_y=None, height=50)
+        # Labels for stats
+        self.stats_label = Label(text="Water today: 0ml", size_hint_y=None, height=40)
+        self.add_widget(self.stats_label)
 
-        self.morning = CheckBox()
-        self.afternoon = CheckBox()
-        self.night = CheckBox()
+        # List of Medicines
+        self.add_widget(Label(text="Current Medications:", size_hint_y=None, height=30))
+        self.med_list = RecycleView()
+        self.med_list.viewclass = 'Label'  # Simplified for bulletproof build
+        self.med_list_data = []
+        self.load_data()
+        self.add_widget(self.med_list)
 
-        dose_box.add_widget(Label(text="Morning"))
-        dose_box.add_widget(self.morning)
-        dose_box.add_widget(Label(text="Afternoon"))
-        dose_box.add_widget(self.afternoon)
-        dose_box.add_widget(Label(text="Night"))
-        dose_box.add_widget(self.night)
-
-        self.add_widget(dose_box)
-
-        add_btn = Button(text="Add Medicine", size_hint_y=None, height=50)
-        add_btn.bind(on_press=self.add_medicine)
-        self.add_widget(add_btn)
-
-        self.scroll = ScrollView()
-        self.list_layout = GridLayout(cols=1, size_hint_y=None)
-        self.list_layout.bind(minimum_height=self.list_layout.setter('height'))
-        self.scroll.add_widget(self.list_layout)
-        self.add_widget(self.scroll)
+    def load_data(self):
+        """Load saved data from the phone storage"""
+        if store.exists('water'):
+            self.stats_label.text = f"Water today: {store.get('water')['amount']}ml"
+        
+        self.med_list_data = []
+        if store.exists('medicines'):
+            meds = store.get('medicines')['list']
+            for m in meds:
+                self.med_list_data.append({'text': m})
+        self.med_list.data = self.med_list_data
 
     def add_medicine(self, instance):
-        name = self.medicine_input.text.strip()
-        if not name:
-            return
+        name = self.med_name.text.strip()
+        if name:
+            current_meds = []
+            if store.exists('medicines'):
+                current_meds = store.get('medicines')['list']
+            
+            current_meds.append(f"{name} (Added: {datetime.now().strftime('%H:%M')})")
+            store.put('medicines', list=current_meds)
+            self.med_name.text = ""
+            self.load_data()
 
-        dose = f"{int(self.morning.active)}-{int(self.afternoon.active)}-{int(self.night.active)}"
-
-        label = Label(
-            text=f"{name}  |  Dose: {dose}",
-            size_hint_y=None,
-            height=40
-        )
-        self.list_layout.add_widget(label)
-
-        self.medicine_input.text = ""
-        self.morning.active = False
-        self.afternoon.active = False
-        self.night.active = False
+    def log_water(self, instance):
+        amount = 0
+        if store.exists('water'):
+            amount = store.get('water')['amount']
+        amount += 250
+        store.put('water', amount=amount)
+        self.load_data()
 
 class MedicineApp(App):
     def build(self):
-        return MedicineTracker()
+        return TrackerHome()
 
 if __name__ == "__main__":
     MedicineApp().run()
