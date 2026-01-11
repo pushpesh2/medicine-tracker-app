@@ -1,7 +1,5 @@
 from kivy.app import App
 from kivy.uix.boxlayout import BoxLayout
-from kivy.uix.floatlayout import FloatLayout
-from kivy.uix.behaviors import ButtonBehavior
 from kivy.graphics import Color, RoundedRectangle
 from kivy.uix.label import Label
 from kivy.uix.button import Button
@@ -11,25 +9,26 @@ from kivy.uix.gridlayout import GridLayout
 from kivy.core.window import Window
 from kivy.utils import get_color_from_hex
 from kivy.storage.jsonstore import JsonStore
+from kivy.utils import platform
 
-# Modern Color Palette
+# Modern Palette
 COLORS = {
-    "bg": "#F8F9FA",
-    "primary": "#00C2FF",  # Bright Water Blue
-    "secondary": "#7D5FFF", # Medicine Purple
+    "bg": "#F0F2F5",
+    "primary": "#007AFF", # iOS Blue
+    "secondary": "#5856D6", # Deep Purple
+    "danger": "#FF3B30", # Red
     "card": "#FFFFFF",
-    "text": "#2D3436",
-    "accent": "#FF7675"    # Alarm Red
+    "text": "#1C1C1E"
 }
 
 store = JsonStore('health_data.json')
 
 class StyledCard(BoxLayout):
-    def __init__(self, bg_color="#FFFFFF", **kwargs):
+    def __init__(self, bg_color="#FFFFFF", rad=[15,], **kwargs):
         super().__init__(**kwargs)
         with self.canvas.before:
             Color(rgb=get_color_from_hex(bg_color))
-            self.rect = RoundedRectangle(pos=self.pos, size=self.size, radius=[15,])
+            self.rect = RoundedRectangle(pos=self.pos, size=self.size, radius=rad)
         self.bind(pos=self.update_rect, size=self.update_rect)
 
     def update_rect(self, *args):
@@ -39,116 +38,106 @@ class StyledCard(BoxLayout):
 class MedicineTrackerApp(App):
     def build(self):
         Window.clearcolor = get_color_from_hex(COLORS["bg"])
-        
+        self.start_service() # Wake up the background alarm logic
+
         root = BoxLayout(orientation='vertical', padding=20, spacing=15)
         
-        # --- HEADER ---
-        header = Label(
-            text="Health Buddy",
-            font_size='28sp',
-            color=get_color_from_hex(COLORS["text"]),
-            bold=True,
-            size_hint_y=None,
-            height=60
-        )
-        root.add_widget(header)
+        # TITLE
+        root.add_widget(Label(text="My Health Tracker", font_size='26sp', color=get_color_from_hex(COLORS["text"]), bold=True, size_hint_y=None, height=50))
 
-        # --- SECTION: MEDICINE ---
-        root.add_widget(Label(text="Medicines", color=get_color_from_hex(COLORS["text"]), size_hint_y=None, height=30, halign='left'))
+        # MEDICINE CARD
+        med_card = StyledCard(orientation='vertical', padding=15, spacing=10, size_hint_y=None, height=200)
+        self.med_input = TextInput(hint_text="Medicine name...", multiline=False, size_hint_y=None, height=45, background_normal='', background_color=(0.9, 0.9, 0.9, 1))
         
-        med_input_card = StyledCard(orientation='vertical', padding=15, spacing=10, size_hint_y=None, height=180)
-        self.med_input = TextInput(hint_text="Pill Name...", multiline=False, size_hint_y=None, height=45)
-        
-        dose_layout = BoxLayout(spacing=5, size_hint_y=None, height=40)
-        self.doses = {"Morning": Button(text="Morn", background_normal='', background_color=(.5,.5,.5,1)),
-                      "Afternoon": Button(text="Aft", background_normal='', background_color=(.5,.5,.5,1)),
-                      "Night": Button(text="Night", background_normal='', background_color=(.5,.5,.5,1))}
-        
-        for name, btn in self.doses.items():
-            btn.bind(on_press=self.toggle_dose)
-            dose_layout.add_widget(btn)
-            
-        add_med_btn = Button(text="Add to Cabinet", background_normal='', background_color=get_color_from_hex(COLORS["secondary"]), bold=True)
-        add_med_btn.bind(on_press=self.add_medicine)
-        
-        med_input_card.add_widget(self.med_input)
-        med_input_card.add_widget(dose_layout)
-        med_input_card.add_widget(add_med_btn)
-        root.add_widget(med_input_card)
+        dose_box = BoxLayout(spacing=10, size_hint_y=None, height=45)
+        self.dose_btns = {}
+        for d in ["Morn", "Noon", "Night"]:
+            btn = Button(text=d, background_normal='', background_color=(0.7, 0.7, 0.7, 1))
+            btn.bind(on_press=self.toggle_btn)
+            self.dose_btns[d] = btn
+            dose_box.add_widget(btn)
 
-        # --- SECTION: WATER ---
-        root.add_widget(Label(text="Hydration", color=get_color_from_hex(COLORS["text"]), size_hint_y=None, height=30))
+        add_btn = Button(text="ADD MEDICINE", background_normal='', background_color=get_color_from_hex(COLORS["secondary"]), bold=True, size_hint_y=None, height=50)
+        add_btn.bind(on_press=self.add_med)
         
+        med_card.add_widget(self.med_input)
+        med_card.add_widget(dose_box)
+        med_card.add_widget(add_btn)
+        root.add_widget(med_card)
+
+        # WATER CARD
         water_card = StyledCard(padding=15, spacing=15, size_hint_y=None, height=100)
-        self.water_label = Label(text="0 ml", color=get_color_from_hex(COLORS["primary"]), font_size='20sp', bold=True)
+        self.water_lbl = Label(text="Water: 0ml", color=get_color_from_hex(COLORS["primary"]), bold=True, font_size='18sp')
         
-        water_btn = Button(text="+ 250ml", background_normal='', background_color=get_color_from_hex(COLORS["primary"]), bold=True)
-        water_btn.bind(on_press=self.add_water)
+        water_act_btn = Button(text="+250ml", background_normal='', background_color=get_color_from_hex(COLORS["primary"]), bold=True)
+        water_act_btn.bind(on_press=self.add_water)
         
-        # Water Alarm Toggle
-        self.water_alarm = Button(text="Alarm: OFF", background_color=get_color_from_hex(COLORS["accent"]))
-        self.water_alarm.bind(on_press=self.toggle_water_alarm)
+        self.alarm_btn = Button(text="Alarm Off", background_normal='', background_color=get_color_from_hex(COLORS["danger"]))
+        self.alarm_btn.bind(on_press=self.toggle_alarm)
         
-        water_card.add_widget(self.water_label)
-        water_card.add_widget(water_btn)
-        water_card.add_widget(self.water_alarm)
+        water_card.add_widget(self.water_lbl)
+        water_card.add_widget(water_act_btn)
+        water_card.add_widget(self.alarm_btn)
         root.add_widget(water_card)
 
-        # --- LIST AREA ---
+        # SCROLLABLE LIST
         self.scroll = ScrollView()
-        self.med_list = GridLayout(cols=1, spacing=10, size_hint_y=None)
-        self.med_list.bind(minimum_height=self.med_list.setter('height'))
-        self.scroll.add_widget(self.med_list)
+        self.list_ui = GridLayout(cols=1, spacing=10, size_hint_y=None)
+        self.list_ui.bind(minimum_height=self.list_ui.setter('height'))
+        self.scroll.add_widget(self.list_ui)
         root.add_widget(self.scroll)
-        
-        self.load_data()
+
+        self.load_all()
         return root
 
-    def toggle_dose(self, btn):
-        if btn.background_color == [.5,.5,.5,1]:
-            btn.background_color = get_color_from_hex(COLORS["secondary"])
-        else:
-            btn.background_color = [.5,.5,.5,1]
+    def start_service(self):
+        if platform == 'android':
+            from android import argb
+            service = autoclass('com.pushpesh.medtrack.ServiceAlarmservice')
+            service.start(App.get_running_app().get_package_domain(), '')
 
-    def add_medicine(self, instance):
+    def toggle_btn(self, btn):
+        btn.background_color = get_color_from_hex(COLORS["secondary"]) if btn.background_color == [0.7, 0.7, 0.7, 1] else [0.7, 0.7, 0.7, 1]
+
+    def add_med(self, _):
         name = self.med_input.text.strip()
-        active_doses = [d for d, btn in self.doses.items() if btn.background_color != [.5,.5,.5,1]]
-        
-        if name and active_doses:
-            med_entry = f"{name} ({', '.join(active_doses)})"
-            self.save_med(med_entry)
-            self.update_list_ui(med_entry)
+        times = [t for t, b in self.dose_btns.items() if b.background_color != [0.7, 0.7, 0.7, 1]]
+        if name and times:
+            entry = f"{name} ({', '.join(times)})"
+            meds = store.get('meds')['data'] if store.exists('meds') else []
+            meds.append(entry)
+            store.put('meds', data=meds)
+            self.refresh_list()
             self.med_input.text = ""
 
-    def add_water(self, instance):
-        current = store.get('water')['amount'] if store.exists('water') else 0
-        new_amount = current + 250
-        store.put('water', amount=new_amount)
-        self.water_label.text = f"{new_amount} ml"
+    def add_water(self, _):
+        val = store.get('water')['val'] if store.exists('water') else 0
+        val += 250
+        store.put('water', val=val)
+        self.water_lbl.text = f"Water: {val}ml"
 
-    def toggle_water_alarm(self, btn):
-        if "OFF" in btn.text:
-            btn.text = "Alarm: ON"
-            btn.background_color = (0, 1, 0.5, 1) # Success Green
-        else:
-            btn.text = "Alarm: OFF"
-            btn.background_color = get_color_from_hex(COLORS["accent"])
+    def toggle_alarm(self, _):
+        current = store.get('settings')['water_alarm'] if store.exists('settings') else False
+        new_state = not current
+        store.put('settings', water_alarm=new_state)
+        self.alarm_btn.text = "Alarm On" if new_state else "Alarm Off"
+        self.alarm_btn.background_color = (0, 0.8, 0.4, 1) if new_state else get_color_from_hex(COLORS["danger"])
 
-    def save_med(self, entry):
-        meds = store.get('meds')['list'] if store.exists('meds') else []
-        meds.append(entry)
-        store.put('meds', list=meds)
+    def load_all(self):
+        if store.exists('water'): self.water_lbl.text = f"Water: {store.get('water')['val']}ml"
+        if store.exists('settings'):
+            state = store.get('settings')['water_alarm']
+            self.alarm_btn.text = "Alarm On" if state else "Alarm Off"
+            self.alarm_btn.background_color = (0, 0.8, 0.4, 1) if state else get_color_from_hex(COLORS["danger"])
+        self.refresh_list()
 
-    def load_data(self):
-        if store.exists('water'):
-            self.water_label.text = f"{store.get('water')['amount']} ml"
+    def refresh_list(self):
+        self.list_ui.clear_widgets()
         if store.exists('meds'):
-            for med in store.get('meds')['list']:
-                self.update_list_ui(med)
-
-    def update_list_ui(self, text):
-        item = Label(text=text, color=get_color_from_hex(COLORS["text"]), size_hint_y=None, height=40)
-        self.med_list.add_widget(item)
+            for m in store.get('meds')['data']:
+                card = StyledCard(bg_color="#FFFFFF", size_hint_y=None, height=50, padding=10)
+                card.add_widget(Label(text=m, color=(0,0,0,1)))
+                self.list_ui.add_widget(card)
 
 if __name__ == "__main__":
     MedicineTrackerApp().run()
